@@ -1,0 +1,9 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+paho-mqtt==1.6.1
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
+pycomm3==1.0.4  # For Omron PLC communication
+asyncio==3.4.3
+websockets==12.0 
