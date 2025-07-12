@@ -4,6 +4,8 @@ paho-mqtt==1.6.1
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 python-dotenv==1.0.0
-pycomm3==1.0.4  # For Omron PLC communication
+pycomm3==1.2.14  # For Omron PLC communication
 asyncio==3.4.3
-websockets==12.0 
+websockets==12.0
+pyyaml==6.0.1  # For configuration file handling
+aiohttp==3.9.3  # For async HTTP requests 

@@ -32,6 +32,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - ./config:/app/config
     environment:
       - MQTT_BROKER_HOST=mqtt-broker
       - MQTT_BROKER_PORT=1883

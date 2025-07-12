@@ -1,0 +1,9 @@
+devices:
+  temperature_sensor:
+    master_ip: "192.168.30.29"
+    port: 6
+    mqtt_topic: "iolink/#"  # Subscribe to all IO-Link topics to debug
+    data_type: "temperature"
+    unit: "celsius"
+    update_rate: 1000  # milliseconds
+    scaling_factor: 0.1  # Adjust this based on your sensor's output format 
