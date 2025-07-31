@@ -1,41 +1,67 @@
+import React from 'react';
 import { Link } from 'react-router-dom';
 
-const DEVICE_CONFIGS = {
-  'HTR-A': {
-    deviceId: '00-02-01-6D-55-8A',
-    maxTemp: 1200,
-    name: 'HTR-A',
-    description: 'Primary Heater Control',
-    ip: '192.168.30.29',
-    inputDeviceId: null
-  },
-  'HTR-B': {
-    deviceId: '00-02-01-6D-55-86',
-    maxTemp: 800,
-    name: 'HTR-B',
-    description: 'Secondary Heater Control',
-    ip: '192.168.30.33',
-    inputDeviceId: '00-02-01-6d-55-86'
-  }
-};
+interface Device {
+  id: string;
+  name: string;
+  ip: string;
+  topic: string;
+}
 
-const Dashboard = () => {
+const devices: Device[] = [
+  {
+    id: 'htr-a',
+    name: 'HTR-A',
+    ip: import.meta.env.VITE_HTR_A_IP || '192.168.30.29',
+    topic: import.meta.env.VITE_HTR_A_TOPIC || 'instrument/unit1/htr_a/temperature',
+  },
+  {
+    id: 'htr-b',
+    name: 'HTR-B',
+    ip: import.meta.env.VITE_HTR_B_IP || '192.168.30.33',
+    topic: import.meta.env.VITE_HTR_B_TOPIC || 'instrument/unit1/htr_b/temperature',
+  },
+];
+
+const Dashboard: React.FC = () => {
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Heater Control Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {Object.entries(DEVICE_CONFIGS).map(([key, config]) => (
-          <Link key={key} to={`/htr-${key.toLowerCase().split('-')[1]}`} className="block">
-            <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
-              <h2 className="text-xl font-semibold mb-2">{config.name}</h2>
-              <p className="text-gray-400">{config.description}</p>
-              <p className="text-gray-400">IO-Link IP: {config.ip}</p>
-              <p className="text-gray-400">Device ID: {config.deviceId}</p>
-              <p className="text-gray-400">Max Temperature: {config.maxTemp}°F</p>
-              {config.inputDeviceId && (
-                <p className="text-gray-400">Temperature Input: {config.inputDeviceId}</p>
-              )}
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      
+      {/* Dual Control Quick Access */}
+      <div className="mb-8">
+        <Link
+          to="/dual-control"
+          className="block w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white shadow-lg rounded-lg p-6 transition-all duration-300 transform hover:scale-105"
+        >
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-2">🔥 Dual Heater Control</h2>
+            <p className="text-blue-100 mb-4">Control both HTR-A and HTR-B side by side</p>
+            <div className="flex justify-center space-x-8 text-sm">
+              <div>
+                <span className="font-semibold">HTR-A:</span> 192.168.30.29 (1200°F Max)
+              </div>
+              <div>
+                <span className="font-semibold">HTR-B:</span> 192.168.30.33 (800°F Max)
+              </div>
             </div>
+          </div>
+        </Link>
+      </div>
+      
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-gray-700">Individual Controls</h2>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {devices.map((device) => (
+          <Link
+            key={device.id}
+            to={`/${device.id}`}
+            className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition-shadow"
+          >
+            <h2 className="text-lg font-semibold mb-2">{device.name}</h2>
+            <div className="text-gray-600 mb-4">IP: {device.ip}</div>
           </Link>
         ))}
       </div>

@@ -1,0 +1,280 @@
+# IoT Control System - Unit Template
+# Template for adding new units with unit-based addressing
+# Each unit has 2 HTRs (A & B) with separate IO-Link masters
+# Replace UNIT_NUMBER with the actual unit number (e.g., 1, 2, 3, etc.)
+
+---
+# Unit X Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-unit{{UNIT_NUMBER}}-dev
+  namespace: iot-control-dev
+  labels:
+    app: backend-unit{{UNIT_NUMBER}}-dev
+    unit: "{{UNIT_NUMBER}}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-unit{{UNIT_NUMBER}}-dev
+      unit: "{{UNIT_NUMBER}}"
+  template:
+    metadata:
+      labels:
+        app: backend-unit{{UNIT_NUMBER}}-dev
+        unit: "{{UNIT_NUMBER}}"
+    spec:
+      containers:
+      - name: backend
+        image: iot-control-backend:dev
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        # MQTT Configuration
+        - name: MQTT_HOST
+          value: "mqtt-service-dev"
+        - name: MQTT_PORT
+          value: "1883"
+        
+        # Unit Configuration
+        - name: UNIT_NAME
+          value: "unit{{UNIT_NUMBER}}"
+        - name: UNIT_NUMBER
+          value: "{{UNIT_NUMBER}}"
+        - name: UNIT_DOMAIN
+          value: "unit{{UNIT_NUMBER}}htr.system"
+        - name: UNIT_SUBNET
+          value: "{{UNIT_SUBNET}}"
+        
+        # HTR-A Configuration (IO-Link A)
+        - name: HTR_A_IP
+          value: "{{UNIT_SUBNET}}.29"
+        - name: HTR_A_DEVICE_ID
+          value: "{{HTR_A_DEVICE_ID}}"
+        - name: HTR_A_TEMP_PORT
+          value: "6"
+        - name: HTR_A_TEMP_TOPIC
+          value: "instrument/unit{{UNIT_NUMBER}}/htr_a/temperature"
+        
+        # HTR-B Configuration (IO-Link B)
+        - name: HTR_B_IP
+          value: "{{UNIT_SUBNET}}.33"
+        - name: HTR_B_DEVICE_ID
+          value: "{{HTR_B_DEVICE_ID}}"
+        - name: HTR_B_TEMP_PORT
+          value: "6"
+        - name: HTR_B_TEMP_TOPIC
+          value: "instrument/unit{{UNIT_NUMBER}}/htr_b/temperature"
+        
+        # Application Configuration
+        - name: CONFIG_PATH
+          value: "/app/config/iolink_config.yml"
+        - name: LOG_LEVEL
+          value: "DEBUG"
+        
+        volumeMounts:
+        - name: app-config
+          mountPath: /app/config/iolink_config.yml
+          subPath: iolink_config.yml
+        - name: backend-source
+          mountPath: /app/src
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /api/status
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: app-config
+        configMap:
+          name: iot-control-dev-config
+      - name: backend-source
+        hostPath:
+          path: ./backend/src
+          type: Directory
+
+---
+# Unit X Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-unit{{UNIT_NUMBER}}-service-dev
+  namespace: iot-control-dev
+  labels:
+    unit: "{{UNIT_NUMBER}}"
+spec:
+  type: NodePort
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 38{{UNIT_NUMBER_PADDED}}  # e.g., 38001 for unit 1
+    name: http
+  selector:
+    app: backend-unit{{UNIT_NUMBER}}-dev
+    unit: "{{UNIT_NUMBER}}"
+
+---
+# Unit X Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-unit{{UNIT_NUMBER}}-dev
+  namespace: iot-control-dev
+  labels:
+    app: frontend-unit{{UNIT_NUMBER}}-dev
+    unit: "{{UNIT_NUMBER}}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-unit{{UNIT_NUMBER}}-dev
+      unit: "{{UNIT_NUMBER}}"
+  template:
+    metadata:
+      labels:
+        app: frontend-unit{{UNIT_NUMBER}}-dev
+        unit: "{{UNIT_NUMBER}}"
+    spec:
+      containers:
+      - name: frontend
+        image: iot-control-frontend:dev
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        # MQTT Configuration
+        - name: VITE_MQTT_HOST
+          value: "localhost"
+        - name: VITE_MQTT_PORT
+          value: "1883"
+        - name: VITE_MQTT_WS_PORT
+          value: "9001"
+        
+        # Unit Configuration
+        - name: VITE_UNIT_NAME
+          value: "unit{{UNIT_NUMBER}}"
+        - name: VITE_UNIT_NUMBER
+          value: "{{UNIT_NUMBER}}"
+        - name: VITE_UNIT_DOMAIN
+          value: "unit{{UNIT_NUMBER}}htr.system"
+        - name: VITE_UNIT_SUBNET
+          value: "{{UNIT_SUBNET}}"
+        
+        # HTR-A Configuration
+        - name: VITE_HTR_A_IP
+          value: "{{UNIT_SUBNET}}.29"
+        - name: VITE_HTR_A_DEVICE_ID
+          value: "{{HTR_A_DEVICE_ID}}"
+        - name: VITE_HTR_A_TOPIC
+          value: "instrument/unit{{UNIT_NUMBER}}/htr_a/temperature"
+        
+        # HTR-B Configuration
+        - name: VITE_HTR_B_IP
+          value: "{{UNIT_SUBNET}}.33"
+        - name: VITE_HTR_B_DEVICE_ID
+          value: "{{HTR_B_DEVICE_ID}}"
+        - name: VITE_HTR_B_TOPIC
+          value: "instrument/unit{{UNIT_NUMBER}}/htr_b/temperature"
+        
+        # API Configuration
+        - name: VITE_API_BASE_URL
+          value: "http://localhost:38{{UNIT_NUMBER_PADDED}}"
+        - name: NODE_ENV
+          value: "development"
+        
+        volumeMounts:
+        - name: frontend-source
+          mountPath: /app/src
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# Unit X Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-unit{{UNIT_NUMBER}}-service-dev
+  namespace: iot-control-dev
+  labels:
+    unit: "{{UNIT_NUMBER}}"
+spec:
+  type: NodePort
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 33{{UNIT_NUMBER_PADDED}}  # e.g., 33001 for unit 1
+    name: http
+  selector:
+    app: frontend-unit{{UNIT_NUMBER}}-dev
+    unit: "{{UNIT_NUMBER}}"
+
+---
+# Ingress Rule for Unit X (add to existing ingress)
+# Add this section to the existing ingress in dev-deployment.yaml
+# - host: unit{{UNIT_NUMBER}}htr.system
+#   http:
+#     paths:
+#     - path: /
+#       pathType: Prefix
+#       backend:
+#         service:
+#           name: frontend-unit{{UNIT_NUMBER}}-service-dev
+#           port:
+#             number: 3000
+#     - path: /api
+#       pathType: Prefix
+#       backend:
+#         service:
+#           name: backend-unit{{UNIT_NUMBER}}-service-dev
+#           port:
+#             number: 8000
+
+---
+# Unit Configuration Summary
+# Replace these placeholders with actual values:
+# {{UNIT_NUMBER}} = Unit number (e.g., 1, 2, 3, etc.)
+# {{UNIT_NUMBER_PADDED}} = Unit number padded to 3 digits (e.g., 001, 002, 003, etc.)
+# {{UNIT_SUBNET}} = Subnet prefix (e.g., 20, 30, 40, etc.)
+# {{HTR_A_DEVICE_ID}} = Device ID for HTR-A (IO-Link A)
+# {{HTR_B_DEVICE_ID}} = Device ID for HTR-B (IO-Link B)
+
+# Example for Unit 1:
+# {{UNIT_NUMBER}} = 1
+# {{UNIT_NUMBER_PADDED}} = 001
+# {{UNIT_SUBNET}} = 20
+# {{HTR_A_DEVICE_ID}} = 00-02-01-6D-55-8A
+# {{HTR_B_DEVICE_ID}} = 00-02-01-6D-55-86
+
+# Network Configuration:
+# Unit 1: Subnet 20.x.x.x
+#   - HTR-A: 20.29 (IO-Link A)
+#   - HTR-B: 20.33 (IO-Link B)
+# Unit 2: Subnet 30.x.x.x
+#   - HTR-A: 30.29 (IO-Link A)
+#   - HTR-B: 30.33 (IO-Link B)
+# Unit 3: Subnet 40.x.x.x
+#   - HTR-A: 40.29 (IO-Link A)
+#   - HTR-B: 40.33 (IO-Link B)
+
+# Access URLs:
+# Frontend: http://unit1htr.system (or http://localhost:33001)
+# Backend API: http://unit1htr.system/api (or http://localhost:38001)
+# MQTT Topics: 
+#   - instrument/unit1/htr_a/temperature
+#   - instrument/unit1/htr_b/temperature 

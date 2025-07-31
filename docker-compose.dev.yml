@@ -1,65 +1,191 @@
 version: '3.8'
 
 services:
-  mqtt-broker:
+  # MQTT Broker (shared between all units)
+  mqtt:
     image: eclipse-mosquitto:2.0
+    container_name: iot-mqtt-dev
     ports:
-      - "1883:1883"
-      - "9001:9001"
+      - "31883:1883"  # MQTT
+      - "39001:9001"  # WebSocket
     volumes:
-      - ./config/mosquitto:/mosquitto/config
-      - mosquitto-data:/mosquitto/data
-      - mosquitto-log:/mosquitto/log
-    restart: unless-stopped
+      - ./mosquitto/config:/mosquitto/config
+    environment:
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+    networks:
+      - iot-network
 
-  timescaledb:
-    image: timescale/timescaledb:latest-pg14
+  # Database (shared between all units)
+  database:
+    image: postgres:14
+    container_name: iot-database-dev
     environment:
       - POSTGRES_USER=iotuser
       - POSTGRES_PASSWORD=iotpassword
       - POSTGRES_DB=iotdata
     ports:
-      - "5432:5432"
+      - "35432:5432"
     volumes:
-      - timescaledb-data:/var/lib/postgresql/data
-    restart: unless-stopped
+      - iot-db-data:/var/lib/postgresql/data
+    networks:
+      - iot-network
 
-  backend:
-    build: 
+  # Unit 1 Backend (Subnet 20.x.x.x)
+  backend-unit1:
+    build:
       context: ./backend
       dockerfile: Dockerfile.dev
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - ./config:/app/config
+    container_name: iot-backend-unit1-dev
     environment:
-      - MQTT_BROKER_HOST=mqtt-broker
-      - MQTT_BROKER_PORT=1883
-      - DB_HOST=timescaledb
-      - DB_USER=iotuser
-      - DB_PASSWORD=iotpassword
-      - DB_NAME=iotdata
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+      - UNIT_NAME=unit1
+      - UNIT_NUMBER=1
+      - UNIT_DOMAIN=unit1htr.system
+      - UNIT_SUBNET=30
+      - HTR_A_IP=30.29
+      - HTR_A_DEVICE_ID=00-02-01-6D-55-8A
+      - HTR_A_TEMP_PORT=6
+      - HTR_A_TEMP_TOPIC=instrument/unit1/htr_a/temperature
+      - HTR_B_IP=30.29
+      - HTR_B_DEVICE_ID=00-02-01-6D-55-86
+      - HTR_B_TEMP_PORT=6
+      - HTR_B_TEMP_TOPIC=instrument/unit1/htr_a/temperature
+      - DATABASE_URL=postgresql://iotuser:iotpassword@database:5432/iotdata
+      - LOG_LEVEL=DEBUG
+    ports:
+      - "38001:8000"
+    volumes:
+      - ./backend/src:/app/src
+      - ./config:/app/config
     depends_on:
-      - mqtt-broker
-      - timescaledb
-    restart: unless-stopped
+      - mqtt
+      - database
+    networks:
+      - iot-network
 
-  frontend:
+  # Unit 1 Frontend
+  frontend-unit1:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    container_name: iot-frontend-unit1-dev
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - VITE_MQTT_HOST=mqtt
+      - VITE_MQTT_PORT=1883
+      - VITE_MQTT_WS_PORT=9001
+      - VITE_UNIT_NAME=unit1
+      - VITE_UNIT_NUMBER=1
+      - VITE_UNIT_DOMAIN=unit1htr.system
+      - VITE_UNIT_SUBNET=30
+      - VITE_HTR_A_IP=30.29
+      - VITE_HTR_A_DEVICE_ID=00-02-01-6D-55-8A
+      - VITE_HTR_A_TOPIC=instrument/unit1/htr_a/temperature
+      - VITE_HTR_B_IP=30.29
+      - VITE_HTR_B_DEVICE_ID=00-02-01-6D-55-86
+      - VITE_HTR_B_TOPIC=instrument/unit1/htr_a/temperature
+      - VITE_API_BASE_URL=http://backend-unit1:8000
+      - NODE_ENV=development
+    ports:
+      - "33001:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
     depends_on:
-      - backend
+      - mqtt
+      - backend-unit1
+    networks:
+      - iot-network
+
+  # Unit 2 Backend (Subnet 30.x.x.x)
+  backend-unit2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: iot-backend-unit2-dev
+    environment:
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+      - UNIT_NAME=unit2
+      - UNIT_NUMBER=2
+      - UNIT_DOMAIN=unit2htr.system
+      - UNIT_SUBNET=30
+      - HTR_A_IP=30.29
+      - HTR_A_DEVICE_ID=00-02-01-6D-55-8C
+      - HTR_A_TEMP_PORT=6
+      - HTR_A_TEMP_TOPIC=instrument/unit2/htr_a/temperature
+      - HTR_B_IP=30.33
+      - HTR_B_DEVICE_ID=00-02-01-6D-55-8D
+      - HTR_B_TEMP_PORT=6
+      - HTR_B_TEMP_TOPIC=instrument/unit2/htr_b/temperature
+      - DATABASE_URL=postgresql://iotuser:iotpassword@database:5432/iotdata
+      - LOG_LEVEL=DEBUG
+    ports:
+      - "38002:8000"
+    volumes:
+      - ./backend/src:/app/src
+      - ./config:/app/config
+    depends_on:
+      - mqtt
+      - database
+    networks:
+      - iot-network
+
+  # Unit 2 Frontend
+  frontend-unit2:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: iot-frontend-unit2-dev
+    environment:
+      - VITE_MQTT_HOST=mqtt
+      - VITE_MQTT_PORT=1883
+      - VITE_MQTT_WS_PORT=9001
+      - VITE_UNIT_NAME=unit2
+      - VITE_UNIT_NUMBER=2
+      - VITE_UNIT_DOMAIN=unit2htr.system
+      - VITE_UNIT_SUBNET=30
+      - VITE_HTR_A_IP=30.29
+      - VITE_HTR_A_DEVICE_ID=00-02-01-6D-55-8C
+      - VITE_HTR_A_TOPIC=instrument/unit2/htr_a/temperature
+      - VITE_HTR_B_IP=30.33
+      - VITE_HTR_B_DEVICE_ID=00-02-01-6D-55-8D
+      - VITE_HTR_B_TOPIC=instrument/unit2/htr_b/temperature
+      - VITE_API_BASE_URL=http://backend-unit2:8000
+      - NODE_ENV=development
+    ports:
+      - "33002:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    depends_on:
+      - mqtt
+      - backend-unit2
+    networks:
+      - iot-network
+
+  # Nginx Reverse Proxy for domain-based routing
+  nginx:
+    image: nginx:alpine
+    container_name: iot-nginx-dev
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - frontend-unit1
+      - frontend-unit2
+      - backend-unit1
+      - backend-unit2
+    networks:
+      - iot-network
 
 volumes:
-  mosquitto-data:
-  mosquitto-log:
-  timescaledb-data: 
+  iot-db-data:
+
+networks:
+  iot-network:
+    driver: bridge 

@@ -1,0 +1,58 @@
+# Unit 2 Configuration
+unit:
+  name: unit2
+  number: 2
+  domain: unit2htr.system
+  subnet: 30
+
+htr_a:
+  ip: 192.168.30.29
+  device_id: [0;34m[INFO][0m Attempting to discover IO-Link device ID from HTR-A at 192.168.30.29...
+[0;34m[INFO][0m Using automated discovery tool...
+[0;34m[INFO][0m Running automated device ID discovery...
+[0;32m[SUCCESS][0m ✅ Device ID automatically discovered: 🔍 IO-Link Device Discovery for 192.168.30.29
+==================================================
+✅ Network connectivity OK
+🔍 Attempting to discover device ID from 192.168.30.29...
+❌ Could not automatically discover device ID
+📋 Please manually enter the device ID from the IO-Link master's web interface
+[0;36m[INPUT][0m Use this device ID? (Y/n):
+🔍 IO-Link Device Discovery for 192.168.30.29
+==================================================
+✅ Network connectivity OK
+🔍 Attempting to discover device ID from 192.168.30.29...
+❌ Could not automatically discover device ID
+📋 Please manually enter the device ID from the IO-Link master's web interface
+  temp_port: 6
+  temp_topic: instrument/unit2/htr_a/temperature
+
+htr_b:
+  ip: 192.168.30.33
+  device_id: [0;34m[INFO][0m Attempting to discover IO-Link device ID from HTR-B at 192.168.30.33...
+[0;34m[INFO][0m Using automated discovery tool...
+[0;34m[INFO][0m Running automated device ID discovery...
+[0;32m[SUCCESS][0m ✅ Device ID automatically discovered: 🔍 IO-Link Device Discovery for 192.168.30.33
+==================================================
+❌ Cannot reach the device. Please check:
+  1. Device is powered on
+  2. Network cable is connected
+  3. IP address is correct
+  4. Device is on the same network
+[0;36m[INPUT][0m Use this device ID? (Y/n):
+🔍 IO-Link Device Discovery for 192.168.30.33
+==================================================
+❌ Cannot reach the device. Please check:
+  1. Device is powered on
+  2. Network cable is connected
+  3. IP address is correct
+  4. Device is on the same network
+  temp_port: 6
+  temp_topic: instrument/unit2/htr_b/temperature
+
+mqtt:
+  host: mqtt
+  port: 1883
+  ws_port: 9001
+
+database:
+  url: postgresql://iotuser:iotpassword@database:5432/iotdata

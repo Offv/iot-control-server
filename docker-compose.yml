@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  mqtt-broker:
-    image: eclipse-mosquitto:2.0
-    container_name: cursor-mqtt-broker
+  # MQTT Broker (shared between units)
+  mqtt:
+    image: eclipse-mosquitto:latest
     ports:
       - "1883:1883"  # MQTT
       - "9001:9001"  # WebSocket
@@ -11,73 +11,75 @@ services:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
-    restart: unless-stopped
 
-  timescaledb:
-    image: timescale/timescaledb:latest-pg14
-    environment:
-      - POSTGRES_USER=iotuser
-      - POSTGRES_PASSWORD=iotpassword
-      - POSTGRES_DB=iotdata
-    ports:
-      - "5432:5432"
-    volumes:
-      - timescaledb-data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  backend:
-    build: 
+  # Unit 1 Services
+  backend-unit1:
+    build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     environment:
-      - MQTT_BROKER_HOST=mqtt-broker
-      - MQTT_BROKER_PORT=1883
-      - DB_HOST=timescaledb
-      - DB_USER=iotuser
-      - DB_PASSWORD=iotpassword
-      - DB_NAME=iotdata
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+      - IOLINK_IP=${UNIT1_IOLINK_IP:-192.168.30.29}
+      - DEVICE_ID=${UNIT1_DEVICE_ID:-00-02-01-6D-55-8A}
+      - UNIT_NAME=unit1
+      - TEMP_TOPIC=instrument/unit1/temperature
+      - CONFIG_PATH=/app/config/iolink_config.yml
+    volumes:
+      - ./config:/app/config
     depends_on:
-      - mqtt-broker
-      - timescaledb
-    restart: unless-stopped
+      - mqtt
 
-  frontend:
+  frontend-unit1:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: iot-control-frontend
+    environment:
+      - VITE_MQTT_HOST=${MQTT_HOST:-localhost}
+      - VITE_MQTT_PORT=1883
+      - VITE_MQTT_WS_PORT=9001
+      - VITE_HTR_A_IP=${UNIT1_IOLINK_IP:-192.168.30.29}
+      - VITE_HTR_A_DEVICE_ID=${UNIT1_DEVICE_ID:-00-02-01-6D-55-8A}
+      - VITE_HTR_A_TOPIC=instrument/unit1/temperature
+      - VITE_UNIT_NAME=unit1
     ports:
-      - "3000:3000"
-    environment:
-      - MQTT_BROKER_HOST=mqtt-broker
-      - MQTT_BROKER_PORT=1883
+      - "3001:80"
     depends_on:
-      - mqtt-broker
-    restart: unless-stopped
+      - mqtt
+      - backend-unit1
 
-  mqtt-test-publisher:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
-    init: true  # Use tini as init process
-    command: python -u src/mqtt_temp_publisher.py  # -u for unbuffered output
-    environment:
-      - MQTT_BROKER_HOST=mqtt-broker
-      - MQTT_BROKER_PORT=1883
-      - PYTHONUNBUFFERED=1
-    depends_on:
-      mqtt-broker:
-        condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "ps aux | grep '[p]ython.*mqtt_temp_publisher' || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
+  # Unit 2 Services (commented out for initial testing)
+  # backend-unit2:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     - MQTT_HOST=mqtt
+  #     - MQTT_PORT=1883
+  #     - IOLINK_IP=${UNIT2_IOLINK_IP:-192.168.30.33}
+  #     - DEVICE_ID=${UNIT2_DEVICE_ID:-00-02-01-6D-55-86}
+  #     - UNIT_NAME=unit2
+  #     - TEMP_TOPIC=instrument/unit2/temperature
+  #     - CONFIG_PATH=/app/config/iolink_config.yml
+  #   volumes:
+  #     - ./config:/app/config
+  #   depends_on:
+  #     - mqtt
 
-volumes:
-  mosquitto-data:
-  mosquitto-log:
-  timescaledb-data: 
+  # frontend-unit2:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     - VITE_MQTT_HOST=${MQTT_HOST:-localhost}
+  #     - VITE_MQTT_PORT=1883
+  #     - VITE_MQTT_WS_PORT=9001
+  #     - VITE_HTR_A_IP=${UNIT2_IOLINK_IP:-192.168.30.33}
+  #     - VITE_HTR_A_DEVICE_ID=${UNIT2_DEVICE_ID:-00-02-01-6D-55-86}
+  #     - VITE_HTR_A_TOPIC=instrument/unit2/temperature
+  #     - VITE_UNIT_NAME=unit2
+  #   ports:
+  #     - "3002:80"
+  #   depends_on:
+  #     - mqtt
+  #     - backend-unit2 

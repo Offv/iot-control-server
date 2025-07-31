@@ -1,0 +1,158 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: iot-control
+  labels:
+    app: backend
+spec:
+  replicas: 2  # Scalable backend
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: iot-control-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        # MQTT Configuration
+        - name: MQTT_HOST
+          value: "mqtt-service"
+        - name: MQTT_PORT
+          value: "1883"
+        - name: MQTT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-secrets
+              key: mqtt_username
+        - name: MQTT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-secrets
+              key: mqtt_password
+        
+        # Database Configuration
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-secrets
+              key: database_url
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-secrets
+              key: database_user
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-secrets
+              key: database_password
+        - name: DATABASE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-secrets
+              key: database_name
+        
+        # IO-Link Configuration (from backup notes)
+        - name: IOLINK_MASTER_IP
+          value: "192.168.30.29"
+        - name: IOLINK_TEMP_PORT
+          value: "6"
+        - name: HTR_A_DEVICE_ID
+          value: "00-02-01-6D-55-8A"
+        - name: HTR_B_DEVICE_ID
+          value: "00-02-01-6D-55-86"
+        
+        # Unit Configuration
+        - name: UNIT_NAME
+          value: "unit1"
+        - name: TEMP_TOPIC
+          value: "instrument/unit1/temperature"
+        
+        # Application Configuration
+        - name: CONFIG_PATH
+          value: "/app/config/iolink_config.yml"
+        - name: LOG_LEVEL
+          value: "INFO"
+        
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: app-config
+          mountPath: /app/config/iolink_config.yml
+          subPath: iolink_config.yml
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/status
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/status
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: config-volume
+        emptyDir: {}
+      - name: app-config
+        configMap:
+          name: iot-control-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: iot-control
+  labels:
+    app: backend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
+  selector:
+    app: backend
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: iot-control
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80 

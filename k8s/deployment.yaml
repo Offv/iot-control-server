@@ -1,0 +1,530 @@
+# IoT Control System - Complete Kubernetes Deployment
+# This deployment preserves all real instrument configurations from the backup notes
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iot-control
+  labels:
+    name: iot-control
+    app: iot-control-system
+
+---
+# ConfigMaps
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: iot-control-config
+  namespace: iot-control
+data:
+  # IO-Link Configuration (from backup notes)
+  iolink_config.yml: |
+    devices:
+      temperature_sensor:
+        master_ip: "192.168.30.29"
+        port: 6
+        mqtt_topic: "iolink/#"
+        data_type: "temperature"
+        unit: "celsius"
+        update_rate: 1000
+        scaling_factor: 0.1
+  
+  # MQTT Configuration
+  mqtt_config.yml: |
+    broker:
+      host: "mqtt-service"
+      port: 1883
+      ws_port: 9001
+    topics:
+      temperature_processed: "instruments_ti"
+      temperature_raw: "instrument/htr_a"
+      iolink_debug: "iolink/#"
+      unit1_temperature: "instrument/unit1/temperature"
+      unit2_temperature: "instrument/unit2/temperature"
+  
+  # Device Configuration (from backup notes)
+  device_config.yml: |
+    devices:
+      htr_a:
+        device_id: "00-02-01-6D-55-8A"
+        max_temp: 1200
+        name: "HTR-A"
+        description: "Primary Heater Control"
+        ip: "192.168.30.29"
+        input_device_id: null
+        iolink_ports:
+          section_1: "port[1]/iolinkdevice/pdout"
+          section_2: "port[2]/iolinkdevice/pdout"
+          section_3: "port[3]/iolinkdevice/pdout"
+          section_4: "port[4]/iolinkdevice/pdout"
+          pid_pulse: "port[5]/iolinkdevice/pdout"
+          temp_sensor: "port[6]/iolinkdevice/pdin"
+      htr_b:
+        device_id: "00-02-01-6D-55-86"
+        max_temp: 800
+        name: "HTR-B"
+        description: "Secondary Heater Control"
+        ip: "192.168.30.33"
+        input_device_id: "00-02-01-6d-55-86"
+        iolink_ports:
+          section_1: "port[1]/iolinkdevice/pdout"
+          section_2: "port[2]/iolinkdevice/pdout"
+          section_3: "port[3]/iolinkdevice/pdout"
+          section_4: "port[4]/iolinkdevice/pdout"
+          pid_pulse: "port[5]/iolinkdevice/pdout"
+          temp_sensor: "port[6]/iolinkdevice/pdin"
+
+---
+# Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: iot-control-secrets
+  namespace: iot-control
+type: Opaque
+data:
+  mqtt_username: bW9xdXR0dXNlcg==  # mqttuser
+  mqtt_password: bW9xdXR0cGFzc3dvcmQ=  # mqttpassword
+  database_user: aW90dXNlcg==  # iotuser
+  database_password: aW90cGFzc3dvcmQ=  # iotpassword
+  database_name: aW90ZGF0YQ==  # iotdata
+
+---
+# Storage Class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+  namespace: iot-control
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+
+---
+# Persistent Volumes
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mqtt-data-pv
+  namespace: iot-control
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/mqtt
+  storageClassName: local-storage
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: database-pv
+  namespace: iot-control
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/timescaledb
+  storageClassName: local-storage
+
+---
+# MQTT Broker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mqtt-broker
+  namespace: iot-control
+  labels:
+    app: mqtt-broker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mqtt-broker
+  template:
+    metadata:
+      labels:
+        app: mqtt-broker
+    spec:
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto:2.0
+        ports:
+        - containerPort: 1883
+          name: mqtt
+        - containerPort: 9001
+          name: websocket
+        volumeMounts:
+        - name: mqtt-config
+          mountPath: /mosquitto/config
+        - name: mqtt-data
+          mountPath: /mosquitto/data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          tcpSocket:
+            port: 1883
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: mqtt-config
+        configMap:
+          name: mqtt-config
+      - name: mqtt-data
+        persistentVolumeClaim:
+          claimName: mqtt-data-pvc
+
+---
+# MQTT ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mqtt-config
+  namespace: iot-control
+data:
+  mosquitto.conf: |
+    listener 1883
+    allow_anonymous true
+    
+    listener 9001
+    protocol websockets
+    allow_anonymous true
+    
+    log_dest file /mosquitto/log/mosquitto.log
+    log_dest stdout
+    log_type all
+    log_timestamp true
+    
+    persistence true
+    persistence_location /mosquitto/data/
+    
+    max_queued_messages 1000
+    max_inflight_messages 20
+
+---
+# MQTT Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mqtt-service
+  namespace: iot-control
+spec:
+  type: ClusterIP
+  ports:
+  - port: 1883
+    targetPort: 1883
+    name: mqtt
+  - port: 9001
+    targetPort: 9001
+    name: websocket
+  selector:
+    app: mqtt-broker
+
+---
+# MQTT PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mqtt-data-pvc
+  namespace: iot-control
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# Database Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database
+  namespace: iot-control
+  labels:
+    app: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: database
+  template:
+    metadata:
+      labels:
+        app: database
+    spec:
+      containers:
+      - name: timescaledb
+        image: timescale/timescaledb:latest-pg14
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-secrets
+              key: database_user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-secrets
+              key: database_password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-secrets
+              key: database_name
+        volumeMounts:
+        - name: database-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - iotuser
+            - -d
+            - iotdata
+          initialDelaySeconds: 60
+          periodSeconds: 30
+      volumes:
+      - name: database-data
+        persistentVolumeClaim:
+          claimName: database-pvc
+
+---
+# Database Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-service
+  namespace: iot-control
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgresql
+  selector:
+    app: database
+
+---
+# Database PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: database-pvc
+  namespace: iot-control
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: iot-control
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: iot-control-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: MQTT_HOST
+          value: "mqtt-service"
+        - name: MQTT_PORT
+          value: "1883"
+        - name: IOLINK_MASTER_IP
+          value: "192.168.30.29"
+        - name: IOLINK_TEMP_PORT
+          value: "6"
+        - name: HTR_A_DEVICE_ID
+          value: "00-02-01-6D-55-8A"
+        - name: HTR_B_DEVICE_ID
+          value: "00-02-01-6D-55-86"
+        - name: UNIT_NAME
+          value: "unit1"
+        - name: TEMP_TOPIC
+          value: "instrument/unit1/temperature"
+        - name: CONFIG_PATH
+          value: "/app/config/iolink_config.yml"
+        volumeMounts:
+        - name: app-config
+          mountPath: /app/config/iolink_config.yml
+          subPath: iolink_config.yml
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/status
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+      volumes:
+      - name: app-config
+        configMap:
+          name: iot-control-config
+
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: iot-control
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
+  selector:
+    app: backend
+
+---
+# Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: iot-control
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: iot-control-frontend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: VITE_MQTT_HOST
+          value: "mqtt-service"
+        - name: VITE_MQTT_PORT
+          value: "1883"
+        - name: VITE_MQTT_WS_PORT
+          value: "9001"
+        - name: VITE_HTR_A_IP
+          value: "192.168.30.29"
+        - name: VITE_HTR_A_DEVICE_ID
+          value: "00-02-01-6D-55-8A"
+        - name: VITE_HTR_A_TOPIC
+          value: "instrument/unit1/temperature"
+        - name: VITE_UNIT_NAME
+          value: "unit1"
+        - name: VITE_API_BASE_URL
+          value: "http://backend-service:8000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 30
+
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: iot-control
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+  selector:
+    app: frontend
+
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: iot-control-ingress
+  namespace: iot-control
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: iot-control.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 8000 

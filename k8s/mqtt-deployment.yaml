@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mqtt-broker
+  namespace: iot-control
+  labels:
+    app: mqtt-broker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mqtt-broker
+  template:
+    metadata:
+      labels:
+        app: mqtt-broker
+    spec:
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto:2.0
+        ports:
+        - containerPort: 1883
+          name: mqtt
+        - containerPort: 9001
+          name: websocket
+        volumeMounts:
+        - name: mqtt-config
+          mountPath: /mosquitto/config
+        - name: mqtt-data
+          mountPath: /mosquitto/data
+        - name: mqtt-logs
+          mountPath: /mosquitto/log
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          tcpSocket:
+            port: 1883
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 1883
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: mqtt-config
+        configMap:
+          name: mqtt-config
+      - name: mqtt-data
+        persistentVolumeClaim:
+          claimName: mqtt-data-pvc
+      - name: mqtt-logs
+        persistentVolumeClaim:
+          claimName: mqtt-logs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mqtt-service
+  namespace: iot-control
+  labels:
+    app: mqtt-broker
+spec:
+  type: ClusterIP
+  ports:
+  - port: 1883
+    targetPort: 1883
+    name: mqtt
+  - port: 9001
+    targetPort: 9001
+    name: websocket
+  selector:
+    app: mqtt-broker
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mqtt-data-pvc
+  namespace: iot-control
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mqtt-logs-pvc
+  namespace: iot-control
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mqtt-config
+  namespace: iot-control
+data:
+  mosquitto.conf: |
+    # MQTT Configuration for Real Instrument Data
+    listener 1883
+    allow_anonymous true
+    
+    # WebSocket for Frontend Connection
+    listener 9001
+    protocol websockets
+    allow_anonymous true
+    
+    # Logging
+    log_dest file /mosquitto/log/mosquitto.log
+    log_dest stdout
+    log_type all
+    log_timestamp true
+    
+    # Persistence
+    persistence true
+    persistence_location /mosquitto/data/
+    
+    # Security (optional)
+    # password_file /mosquitto/config/password_file
+    
+    # Performance
+    max_queued_messages 1000
+    max_inflight_messages 20 

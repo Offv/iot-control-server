@@ -1,0 +1,663 @@
+# IoT Control System - Development Deployment
+# For local development on your PC with unit-based addressing
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iot-control-dev
+  labels:
+    name: iot-control-dev
+    app: iot-control-system
+    environment: development
+
+---
+# ConfigMaps for Development
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: iot-control-dev-config
+  namespace: iot-control-dev
+data:
+  # IO-Link Configuration (from backup notes)
+  iolink_config.yml: |
+    devices:
+      temperature_sensor:
+        master_ip: "192.168.30.29"
+        port: 6
+        mqtt_topic: "iolink/#"
+        data_type: "temperature"
+        unit: "celsius"
+        update_rate: 1000
+        scaling_factor: 0.1
+  
+  # MQTT Configuration for Development
+  mqtt_config.yml: |
+    broker:
+      host: "mqtt-service"
+      port: 1883
+      ws_port: 9001
+    topics:
+      temperature_processed: "instruments_ti"
+      temperature_raw: "instrument/htr_a"
+      iolink_debug: "iolink/#"
+      unit1_temperature: "instrument/unit1/temperature"
+      unit2_temperature: "instrument/unit2/temperature"
+  
+  # Device Configuration (from backup notes)
+  device_config.yml: |
+    devices:
+      htr_a:
+        device_id: "00-02-01-6D-55-8A"
+        max_temp: 1200
+        name: "HTR-A"
+        description: "Primary Heater Control"
+        ip: "192.168.30.29"
+        input_device_id: null
+        iolink_ports:
+          section_1: "port[1]/iolinkdevice/pdout"
+          section_2: "port[2]/iolinkdevice/pdout"
+          section_3: "port[3]/iolinkdevice/pdout"
+          section_4: "port[4]/iolinkdevice/pdout"
+          pid_pulse: "port[5]/iolinkdevice/pdout"
+          temp_sensor: "port[6]/iolinkdevice/pdin"
+      htr_b:
+        device_id: "00-02-01-6D-55-86"
+        max_temp: 800
+        name: "HTR-B"
+        description: "Secondary Heater Control"
+        ip: "192.168.30.33"
+        input_device_id: "00-02-01-6d-55-86"
+        iolink_ports:
+          section_1: "port[1]/iolinkdevice/pdout"
+          section_2: "port[2]/iolinkdevice/pdout"
+          section_3: "port[3]/iolinkdevice/pdout"
+          section_4: "port[4]/iolinkdevice/pdout"
+          pid_pulse: "port[5]/iolinkdevice/pdout"
+          temp_sensor: "port[6]/iolinkdevice/pdin"
+
+---
+# Secrets for Development
+apiVersion: v1
+kind: Secret
+metadata:
+  name: iot-control-dev-secrets
+  namespace: iot-control-dev
+type: Opaque
+data:
+  mqtt_username: bW9xdXR0dXNlcg==  # mqttuser
+  mqtt_password: bW9xdXR0cGFzc3dvcmQ=  # mqttpassword
+  database_user: aW90dXNlcg==  # iotuser
+  database_password: aW90cGFzc3dvcmQ=  # iotpassword
+  database_name: aW90ZGF0YQ==  # iotdata
+
+---
+# MQTT Broker for Development
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mqtt-broker-dev
+  namespace: iot-control-dev
+  labels:
+    app: mqtt-broker-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mqtt-broker-dev
+  template:
+    metadata:
+      labels:
+        app: mqtt-broker-dev
+    spec:
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto:2.0
+        ports:
+        - containerPort: 1883
+          name: mqtt
+        - containerPort: 9001
+          name: websocket
+        volumeMounts:
+        - name: mqtt-config
+          mountPath: /mosquitto/config
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: mqtt-config
+        configMap:
+          name: mqtt-dev-config
+
+---
+# MQTT ConfigMap for Development
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mqtt-dev-config
+  namespace: iot-control-dev
+data:
+  mosquitto.conf: |
+    listener 1883
+    allow_anonymous true
+    
+    listener 9001
+    protocol websockets
+    allow_anonymous true
+    
+    log_dest stdout
+    log_type all
+    log_timestamp true
+
+---
+# MQTT Service for Development
+apiVersion: v1
+kind: Service
+metadata:
+  name: mqtt-service-dev
+  namespace: iot-control-dev
+spec:
+  type: NodePort
+  ports:
+  - port: 1883
+    targetPort: 1883
+    nodePort: 31883
+    name: mqtt
+  - port: 9001
+    targetPort: 9001
+    nodePort: 39001
+    name: websocket
+  selector:
+    app: mqtt-broker-dev
+
+---
+# Database for Development (Optional - can use local PostgreSQL)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database-dev
+  namespace: iot-control-dev
+  labels:
+    app: database-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: database-dev
+  template:
+    metadata:
+      labels:
+        app: database-dev
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:14
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-dev-secrets
+              key: database_user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-dev-secrets
+              key: database_password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: iot-control-dev-secrets
+              key: database_name
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+
+---
+# Database Service for Development
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-service-dev
+  namespace: iot-control-dev
+spec:
+  type: NodePort
+  ports:
+  - port: 5432
+    targetPort: 5432
+    nodePort: 35432
+    name: postgresql
+  selector:
+    app: database-dev
+
+---
+# Unit 1 Backend for Development
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-unit1-dev
+  namespace: iot-control-dev
+  labels:
+    app: backend-unit1-dev
+    unit: "1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-unit1-dev
+      unit: "1"
+  template:
+    metadata:
+      labels:
+        app: backend-unit1-dev
+        unit: "1"
+    spec:
+      containers:
+      - name: backend
+        image: iot-control-backend:dev
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: MQTT_HOST
+          value: "mqtt-service-dev"
+        - name: MQTT_PORT
+          value: "1883"
+        - name: IOLINK_MASTER_IP
+          value: "192.168.30.29"
+        - name: IOLINK_TEMP_PORT
+          value: "6"
+        - name: HTR_A_DEVICE_ID
+          value: "00-02-01-6D-55-8A"
+        - name: HTR_B_DEVICE_ID
+          value: "00-02-01-6D-55-86"
+        - name: UNIT_NAME
+          value: "unit1"
+        - name: UNIT_NUMBER
+          value: "1"
+        - name: TEMP_TOPIC
+          value: "instrument/unit1/temperature"
+        - name: CONFIG_PATH
+          value: "/app/config/iolink_config.yml"
+        - name: LOG_LEVEL
+          value: "DEBUG"
+        - name: UNIT_DOMAIN
+          value: "unit1htr.system"
+        volumeMounts:
+        - name: app-config
+          mountPath: /app/config/iolink_config.yml
+          subPath: iolink_config.yml
+        - name: backend-source
+          mountPath: /app/src
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /api/status
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: app-config
+        configMap:
+          name: iot-control-dev-config
+      - name: backend-source
+        hostPath:
+          path: ./backend/src
+          type: Directory
+
+---
+# Unit 1 Backend Service for Development
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-unit1-service-dev
+  namespace: iot-control-dev
+  labels:
+    unit: "1"
+spec:
+  type: NodePort
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 38001
+    name: http
+  selector:
+    app: backend-unit1-dev
+    unit: "1"
+
+---
+# Unit 1 Frontend for Development
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-unit1-dev
+  namespace: iot-control-dev
+  labels:
+    app: frontend-unit1-dev
+    unit: "1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-unit1-dev
+      unit: "1"
+  template:
+    metadata:
+      labels:
+        app: frontend-unit1-dev
+        unit: "1"
+    spec:
+      containers:
+      - name: frontend
+        image: iot-control-frontend:dev
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: VITE_MQTT_HOST
+          value: "localhost"
+        - name: VITE_MQTT_PORT
+          value: "1883"
+        - name: VITE_MQTT_WS_PORT
+          value: "9001"
+        - name: VITE_HTR_A_IP
+          value: "192.168.30.29"
+        - name: VITE_HTR_A_DEVICE_ID
+          value: "00-02-01-6D-55-8A"
+        - name: VITE_HTR_A_TOPIC
+          value: "instrument/unit1/temperature"
+        - name: VITE_UNIT_NAME
+          value: "unit1"
+        - name: VITE_UNIT_NUMBER
+          value: "1"
+        - name: VITE_API_BASE_URL
+          value: "http://localhost:38001"
+        - name: VITE_UNIT_DOMAIN
+          value: "unit1htr.system"
+        - name: NODE_ENV
+          value: "development"
+        volumeMounts:
+        - name: frontend-source
+          mountPath: /app/src
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# Unit 1 Frontend Service for Development
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-unit1-service-dev
+  namespace: iot-control-dev
+  labels:
+    unit: "1"
+spec:
+  type: NodePort
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 33001
+    name: http
+  selector:
+    app: frontend-unit1-dev
+    unit: "1"
+
+---
+# Unit 2 Backend for Development (Example for additional unit)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-unit2-dev
+  namespace: iot-control-dev
+  labels:
+    app: backend-unit2-dev
+    unit: "2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-unit2-dev
+      unit: "2"
+  template:
+    metadata:
+      labels:
+        app: backend-unit2-dev
+        unit: "2"
+    spec:
+      containers:
+      - name: backend
+        image: iot-control-backend:dev
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: MQTT_HOST
+          value: "mqtt-service-dev"
+        - name: MQTT_PORT
+          value: "1883"
+        - name: IOLINK_MASTER_IP
+          value: "192.168.30.33"
+        - name: IOLINK_TEMP_PORT
+          value: "6"
+        - name: HTR_A_DEVICE_ID
+          value: "00-02-01-6D-55-86"
+        - name: HTR_B_DEVICE_ID
+          value: "00-02-01-6D-55-8A"
+        - name: UNIT_NAME
+          value: "unit2"
+        - name: UNIT_NUMBER
+          value: "2"
+        - name: TEMP_TOPIC
+          value: "instrument/unit2/temperature"
+        - name: CONFIG_PATH
+          value: "/app/config/iolink_config.yml"
+        - name: LOG_LEVEL
+          value: "DEBUG"
+        - name: UNIT_DOMAIN
+          value: "unit2htr.system"
+        volumeMounts:
+        - name: app-config
+          mountPath: /app/config/iolink_config.yml
+          subPath: iolink_config.yml
+        - name: backend-source
+          mountPath: /app/src
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /api/status
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: app-config
+        configMap:
+          name: iot-control-dev-config
+      - name: backend-source
+        hostPath:
+          path: ./backend/src
+          type: Directory
+
+---
+# Unit 2 Backend Service for Development
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-unit2-service-dev
+  namespace: iot-control-dev
+  labels:
+    unit: "2"
+spec:
+  type: NodePort
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 38002
+    name: http
+  selector:
+    app: backend-unit2-dev
+    unit: "2"
+
+---
+# Unit 2 Frontend for Development
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-unit2-dev
+  namespace: iot-control-dev
+  labels:
+    app: frontend-unit2-dev
+    unit: "2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-unit2-dev
+      unit: "2"
+  template:
+    metadata:
+      labels:
+        app: frontend-unit2-dev
+        unit: "2"
+    spec:
+      containers:
+      - name: frontend
+        image: iot-control-frontend:dev
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: VITE_MQTT_HOST
+          value: "localhost"
+        - name: VITE_MQTT_PORT
+          value: "1883"
+        - name: VITE_MQTT_WS_PORT
+          value: "9001"
+        - name: VITE_HTR_A_IP
+          value: "192.168.30.33"
+        - name: VITE_HTR_A_DEVICE_ID
+          value: "00-02-01-6D-55-86"
+        - name: VITE_HTR_A_TOPIC
+          value: "instrument/unit2/temperature"
+        - name: VITE_UNIT_NAME
+          value: "unit2"
+        - name: VITE_UNIT_NUMBER
+          value: "2"
+        - name: VITE_API_BASE_URL
+          value: "http://localhost:38002"
+        - name: VITE_UNIT_DOMAIN
+          value: "unit2htr.system"
+        - name: NODE_ENV
+          value: "development"
+        volumeMounts:
+        - name: frontend-source
+          mountPath: /app/src
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# Unit 2 Frontend Service for Development
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-unit2-service-dev
+  namespace: iot-control-dev
+  labels:
+    unit: "2"
+spec:
+  type: NodePort
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 33002
+    name: http
+  selector:
+    app: frontend-unit2-dev
+    unit: "2"
+
+---
+# Ingress for Unit-Based Domain Routing
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: iot-control-dev-ingress
+  namespace: iot-control-dev
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: unit1htr.system
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-unit1-service-dev
+            port:
+              number: 3000
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-unit1-service-dev
+            port:
+              number: 8000
+  - host: unit2htr.system
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-unit2-service-dev
+            port:
+              number: 3000
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-unit2-service-dev
+            port:
+              number: 8000 
