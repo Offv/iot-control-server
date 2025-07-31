@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+// import type { IClientOptions } from 'mqtt';
+// import mqtt from 'mqtt';
 import { Switch } from '@mui/material';
 import { BoltIcon } from '@heroicons/react/24/solid';
-import mqtt from 'mqtt';
-import type { MqttClient, IClientOptions } from 'mqtt';
 
 interface HtrDeviceDetailProps {
   deviceType: string;
@@ -31,13 +31,13 @@ interface HtrConfig {
   lastTempUpdate: number; // Add timestamp of last temperature reading
 }
 
-interface HtrDevice {
-  id: string;
-  name: string;
-  ipAddress: string;
-  htrSystem: string;
-  ioLinkIp: string;
-}
+// interface HtrDevice {
+//   id: string;
+//   name: string;
+//   ipAddress: string;
+//   htrSystem: string;
+//   ioLinkIp: string;
+// }
 
 // Device-specific configurations
 const DEVICE_CONFIGS = {
@@ -146,22 +146,23 @@ const savePersistentState = (deviceType: string, state: Partial<PersistentState>
 };
 
 // MQTT Configuration - using WebSocket for persistent connection
-const MQTT_CONFIG = {
-  host: window.location.hostname || 'localhost',  // Use current hostname for external access
-  port: 39001,  // External MQTT WebSocket port
-  clientId: `htr_control_${Math.random().toString(16).substring(2, 8)}`
-};
+// const MQTT_CONFIG = {
+//   host: window.location.hostname || 'localhost',  // Use current hostname for external access
+//   port: 39001,  // External MQTT WebSocket port
+//   clientId: `htr_control_${Math.random().toString(16).substring(2, 8)}`
+// };
 
-const MQTT_OPTIONS: IClientOptions = {
-  clientId: MQTT_CONFIG.clientId,
-  clean: true,
-  reconnectPeriod: 5000,
-  connectTimeout: 5000,
-  rejectUnauthorized: false
-};
+// MQTT configuration
+// const MQTT_OPTIONS: IClientOptions = {
+//   clientId: `htr_control_${Math.random().toString(16).slice(3)}`,
+//   clean: true,
+//   connectTimeout: 4000,
+//   username: 'iotuser',
+//   password: 'iotpassword',
+//   reconnectPeriod: 1000,
+// };
 
-// Static MQTT client to maintain connection across component unmounts
-let staticMqttClient: MqttClient | null = null;
+// let staticMqttClient: MqttClient | null = null;
 
 // IO-Link port mapping
 const IO_LINK_PORTS = {
@@ -205,8 +206,7 @@ const MIN_PULSE_WIDTH = 50; // Minimum pulse width in milliseconds
 const CircularTimer: React.FC<{
   timeLeft: number;
   totalTime: number;
-  action: 'add' | 'remove' | 'none';
-}> = ({ timeLeft, totalTime, action }) => {
+}> = ({ timeLeft, totalTime }) => {
   const radius = 20;
   const circumference = 2 * Math.PI * radius;
   // Reverse the progress so it counts down (decreasing circle)
@@ -256,10 +256,10 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   //   ioLinkIp: ioLinkIp
   // });
 
-  const [mqttConnected, setMqttConnected] = useState(false);
-  const [lastMqttUpdate, setLastMqttUpdate] = useState<Date | null>(null);
-  const [mqttReconnectAttempts, setMqttReconnectAttempts] = useState(0);
-  const [mqttStatus, setMqttStatus] = useState<string>('Disconnected');
+  // const [mqttConnected, setMqttConnected] = useState(false);
+  // const [lastMqttUpdate, setLastMqttUpdate] = useState<Date | null>(null);
+  // const [mqttReconnectAttempts, setMqttReconnectAttempts] = useState(0);
+  // const [mqttStatus, setMqttStatus] = useState<string>('Disconnected');
   const [showDeviceInfo, setShowDeviceInfo] = useState(false);
   const [showPidTuning, setShowPidTuning] = useState(false);
   const [showSystemStatus, setShowSystemStatus] = useState(false);
@@ -309,16 +309,16 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   }, []);
 
   // Temperature conversion function with reduced logging
-  const convertHexToFahrenheit = (hexTemp: string): number => {
-    try {
-      const decimalValue = parseInt(hexTemp, 16);
-      const fahrenheitTemp = (decimalValue / 10);
-      return fahrenheitTemp;
-    } catch (error) {
-      addDebugLog(`Hex conversion error: ${hexTemp}`);
-      return 0;
-    }
-  };
+  // const convertHexToFahrenheit = (hexTemp: string): number => {
+  //   try {
+  //     const decimalValue = parseInt(hexTemp, 16);
+  //     const fahrenheitTemp = (decimalValue / 10);
+  //     return fahrenheitTemp;
+  //   } catch (error) {
+  //     addDebugLog(`Hex conversion error: ${hexTemp}`);
+  //     return 0;
+  //   }
+  // };
 
   // Fetch temperature from backend API with reduced logging
   const fetchTemperatureFromAPI = async () => {
@@ -449,7 +449,7 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
     //     staticMqttClient = client;
     //   }
     // };
-  }, [mqttConnected, lastMqttUpdate, mqttReconnectAttempts, deviceType]);
+  }, [deviceType]);
 
   // Function to analyze temperature trend from history
   // const analyzeTrendFromHistory = (history: {temp: number, timestamp: number}[]) => {
@@ -975,7 +975,7 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   // const lastTempRef = useRef(0);
   // const lastTempTimeRef = useRef(0);
   const tempVelocityRef = useRef(0);
-  const lastTempVelocityRef = useRef(0);
+  // const lastTempVelocityRef = useRef(0);
 
   // Add temperature history for velocity calculation
   const tempHistoryRef = useRef<{temp: number, timestamp: number}[]>([]);
@@ -1032,7 +1032,7 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   }, [htrConfig.setpoint, htrConfig.currentTemp, htrConfig.kp, htrConfig.ki, htrConfig.kd]);
 
   // Stepped Output Controller with Acceleration-Based Control
-  const calculateSteppedOutput = (setpoint: number, currentTemp: number, currentOutput: number, tempTrend: string): number => {
+  const calculateSteppedOutput = (setpoint: number, currentTemp: number, currentOutput: number, _tempTrend: string): number => {
     const error = setpoint - currentTemp;
     const absError = Math.abs(error);
     const now = Date.now();
@@ -1742,7 +1742,6 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
               <CircularTimer
                 timeLeft={timeUntilChange}
                 totalTime={timerSize * 1000}
-                action={htrConfig.nextAction}
               />
             )}
           </div>
