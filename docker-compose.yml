@@ -12,6 +12,18 @@ services:
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
 
+  # Database (shared between units)
+  database:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=iotuser
+      - POSTGRES_PASSWORD=iotpassword
+      - POSTGRES_DB=iotdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - iot-db-data:/var/lib/postgresql/data
+
   # Unit 1 Services
   backend-unit1:
     build:
@@ -20,15 +32,25 @@ services:
     environment:
       - MQTT_HOST=mqtt
       - MQTT_PORT=1883
-      - IOLINK_IP=${UNIT1_IOLINK_IP:-192.168.30.29}
-      - DEVICE_ID=${UNIT1_DEVICE_ID:-00-02-01-6D-55-8A}
       - UNIT_NAME=unit1
-      - TEMP_TOPIC=instrument/unit1/temperature
-      - CONFIG_PATH=/app/config/iolink_config.yml
+      - UNIT_NUMBER=1
+      - UNIT_DOMAIN=unit1htr.system
+      - UNIT_SUBNET=30
+      - HTR_A_IP=${UNIT1_HTR_A_IP:-192.168.30.29}
+      - HTR_A_DEVICE_ID=${UNIT1_HTR_A_DEVICE_ID:-00-02-01-6D-55-8A}
+      - HTR_A_TEMP_PORT=6
+      - HTR_A_TEMP_TOPIC=instrument/unit1/htr_a/temperature
+      - HTR_B_IP=${UNIT1_HTR_B_IP:-192.168.30.29}
+      - HTR_B_DEVICE_ID=${UNIT1_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
+      - HTR_B_TEMP_PORT=6
+      - HTR_B_TEMP_TOPIC=instrument/unit1/htr_a/temperature
+      - DATABASE_URL=postgresql://iotuser:iotpassword@database:5432/iotdata
+      - LOG_LEVEL=INFO
     volumes:
       - ./config:/app/config
     depends_on:
       - mqtt
+      - database
 
   frontend-unit1:
     build:
@@ -38,10 +60,17 @@ services:
       - VITE_MQTT_HOST=${MQTT_HOST:-localhost}
       - VITE_MQTT_PORT=1883
       - VITE_MQTT_WS_PORT=9001
-      - VITE_HTR_A_IP=${UNIT1_IOLINK_IP:-192.168.30.29}
-      - VITE_HTR_A_DEVICE_ID=${UNIT1_DEVICE_ID:-00-02-01-6D-55-8A}
-      - VITE_HTR_A_TOPIC=instrument/unit1/temperature
       - VITE_UNIT_NAME=unit1
+      - VITE_UNIT_NUMBER=1
+      - VITE_UNIT_DOMAIN=unit1htr.system
+      - VITE_UNIT_SUBNET=30
+      - VITE_HTR_A_IP=${UNIT1_HTR_A_IP:-192.168.30.29}
+      - VITE_HTR_A_DEVICE_ID=${UNIT1_HTR_A_DEVICE_ID:-00-02-01-6D-55-8A}
+      - VITE_HTR_A_TOPIC=instrument/unit1/htr_a/temperature
+      - VITE_HTR_B_IP=${UNIT1_HTR_B_IP:-192.168.30.29}
+      - VITE_HTR_B_DEVICE_ID=${UNIT1_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
+      - VITE_HTR_B_TOPIC=instrument/unit1/htr_a/temperature
+      - VITE_API_BASE_URL=http://backend-unit1:8000
     ports:
       - "3001:80"
     depends_on:
@@ -82,4 +111,7 @@ services:
   #     - "3002:80"
   #   depends_on:
   #     - mqtt
-  #     - backend-unit2 
+  #     - backend-unit2
+
+volumes:
+  iot-db-data: 

@@ -44,11 +44,11 @@ services:
       - UNIT_NUMBER=1
       - UNIT_DOMAIN=unit1htr.system
       - UNIT_SUBNET=30
-      - HTR_A_IP=30.29
+      - HTR_A_IP=192.168.30.29
       - HTR_A_DEVICE_ID=00-02-01-6D-55-8A
       - HTR_A_TEMP_PORT=6
       - HTR_A_TEMP_TOPIC=instrument/unit1/htr_a/temperature
-      - HTR_B_IP=30.29
+      - HTR_B_IP=192.168.30.29
       - HTR_B_DEVICE_ID=00-02-01-6D-55-86
       - HTR_B_TEMP_PORT=6
       - HTR_B_TEMP_TOPIC=instrument/unit1/htr_a/temperature
@@ -79,10 +79,10 @@ services:
       - VITE_UNIT_NUMBER=1
       - VITE_UNIT_DOMAIN=unit1htr.system
       - VITE_UNIT_SUBNET=30
-      - VITE_HTR_A_IP=30.29
+      - VITE_HTR_A_IP=192.168.30.29
       - VITE_HTR_A_DEVICE_ID=00-02-01-6D-55-8A
       - VITE_HTR_A_TOPIC=instrument/unit1/htr_a/temperature
-      - VITE_HTR_B_IP=30.29
+      - VITE_HTR_B_IP=192.168.30.29
       - VITE_HTR_B_DEVICE_ID=00-02-01-6D-55-86
       - VITE_HTR_B_TOPIC=instrument/unit1/htr_a/temperature
       - VITE_API_BASE_URL=http://backend-unit1:8000
@@ -111,14 +111,14 @@ services:
       - UNIT_NUMBER=2
       - UNIT_DOMAIN=unit2htr.system
       - UNIT_SUBNET=30
-      - HTR_A_IP=30.29
+      - HTR_A_IP=192.168.30.29
       - HTR_A_DEVICE_ID=00-02-01-6D-55-8C
       - HTR_A_TEMP_PORT=6
       - HTR_A_TEMP_TOPIC=instrument/unit2/htr_a/temperature
-      - HTR_B_IP=30.33
+      - HTR_B_IP=192.168.30.33
       - HTR_B_DEVICE_ID=00-02-01-6D-55-8D
       - HTR_B_TEMP_PORT=6
-      - HTR_B_TEMP_TOPIC=instrument/unit2/htr_b/temperature
+      - HTR_B_TEMP_TOPIC=instrument/unit2/htr_a/temperature
       - DATABASE_URL=postgresql://iotuser:iotpassword@database:5432/iotdata
       - LOG_LEVEL=DEBUG
     ports:
@@ -146,12 +146,12 @@ services:
       - VITE_UNIT_NUMBER=2
       - VITE_UNIT_DOMAIN=unit2htr.system
       - VITE_UNIT_SUBNET=30
-      - VITE_HTR_A_IP=30.29
+      - VITE_HTR_A_IP=192.168.30.29
       - VITE_HTR_A_DEVICE_ID=00-02-01-6D-55-8C
       - VITE_HTR_A_TOPIC=instrument/unit2/htr_a/temperature
-      - VITE_HTR_B_IP=30.33
+      - VITE_HTR_B_IP=192.168.30.33
       - VITE_HTR_B_DEVICE_ID=00-02-01-6D-55-8D
-      - VITE_HTR_B_TOPIC=instrument/unit2/htr_b/temperature
+      - VITE_HTR_B_TOPIC=instrument/unit2/htr_a/temperature
       - VITE_API_BASE_URL=http://backend-unit2:8000
       - NODE_ENV=development
     ports:
