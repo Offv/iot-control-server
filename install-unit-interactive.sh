@@ -350,6 +350,49 @@ if [[ $confirm =~ ^[Yy]$ ]]; then
     # Generate configuration
     generate_unit_config "$unit_number" "$htr_a_ip" "$htr_a_device_id" "$htr_b_ip" "$htr_b_device_id"
     
+    # Configure firewall
+    print_status ""
+    print_status "=== Firewall Configuration ==="
+    print_input "Configure Ubuntu firewall (ufw) to allow application ports? (Y/n):"
+    read -r configure_firewall
+    configure_firewall=${configure_firewall:-"Y"}
+    
+    if [[ $configure_firewall =~ ^[Yy]$ ]]; then
+        print_status "Configuring firewall..."
+        
+        # Check if ufw is installed
+        if command -v ufw &> /dev/null; then
+            # Open required ports
+            sudo ufw allow 3001/tcp 2>/dev/null && print_success "✅ Port 3001 (Frontend) opened"
+            sudo ufw allow 38001/tcp 2>/dev/null && print_success "✅ Port 38001 (Backend API) opened"
+            sudo ufw allow 1883/tcp 2>/dev/null && print_success "✅ Port 1883 (MQTT) opened"
+            sudo ufw allow 9001/tcp 2>/dev/null && print_success "✅ Port 9001 (MQTT WebSocket) opened"
+            sudo ufw allow 5432/tcp 2>/dev/null && print_success "✅ Port 5432 (Database) opened"
+            
+            # Reload firewall
+            sudo ufw reload 2>/dev/null
+            print_success "✅ Firewall configuration completed"
+            
+            # Show current status
+            print_status "Current firewall status:"
+            sudo ufw status numbered | head -10
+        else
+            print_warning "ufw not found. Please manually configure your firewall:"
+            echo "  sudo ufw allow 3001/tcp  # Frontend"
+            echo "  sudo ufw allow 38001/tcp # Backend API"
+            echo "  sudo ufw allow 1883/tcp  # MQTT"
+            echo "  sudo ufw allow 9001/tcp  # MQTT WebSocket"
+            echo "  sudo ufw allow 5432/tcp  # Database"
+        fi
+    else
+        print_warning "Firewall configuration skipped. You may need to manually open ports:"
+        echo "  - 3001 (Frontend)"
+        echo "  - 38001 (Backend API)"
+        echo "  - 1883 (MQTT)"
+        echo "  - 9001 (MQTT WebSocket)"
+        echo "  - 5432 (Database)"
+    fi
+    
     print_success ""
     print_success "Unit $unit_number installation completed!"
     print_status ""

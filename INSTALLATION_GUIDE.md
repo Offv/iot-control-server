@@ -280,6 +280,80 @@ timer_settings:
   reset_on_pid_change: true
 ```
 
+## 🔥 Firewall Configuration
+
+### Ubuntu Firewall (ufw)
+
+The installation script will automatically configure the Ubuntu firewall to allow the required ports. If you need to configure it manually:
+
+```bash
+# Open required ports for the application
+sudo ufw allow 3001/tcp  # Frontend web interface
+sudo ufw allow 38001/tcp # Backend API
+sudo ufw allow 1883/tcp  # MQTT broker
+sudo ufw allow 9001/tcp  # MQTT WebSocket
+sudo ufw allow 5432/tcp  # Database (if needed externally)
+
+# Reload firewall
+sudo ufw reload
+
+# Check status
+sudo ufw status numbered
+```
+
+### Manual Firewall Configuration
+
+If the automatic configuration fails, you can manually configure your firewall:
+
+#### For Ubuntu/Debian (ufw):
+```bash
+sudo ufw allow 3001/tcp
+sudo ufw allow 38001/tcp
+sudo ufw allow 1883/tcp
+sudo ufw allow 9001/tcp
+sudo ufw reload
+```
+
+#### For CentOS/RHEL (firewalld):
+```bash
+sudo firewall-cmd --permanent --add-port=3001/tcp
+sudo firewall-cmd --permanent --add-port=38001/tcp
+sudo firewall-cmd --permanent --add-port=1883/tcp
+sudo firewall-cmd --permanent --add-port=9001/tcp
+sudo firewall-cmd --reload
+```
+
+#### For iptables:
+```bash
+sudo iptables -A INPUT -p tcp --dport 3001 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 38001 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 1883 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 9001 -j ACCEPT
+```
+
+### Port Summary
+
+| Port | Service | Description |
+|------|---------|-------------|
+| 3001 | Frontend | Web interface (HTR-A & HTR-B controls) |
+| 38001 | Backend API | REST API for temperature and control |
+| 1883 | MQTT | Message queuing for real-time data |
+| 9001 | MQTT WebSocket | WebSocket connection for MQTT |
+| 5432 | Database | PostgreSQL (internal use) |
+
+### Network Access
+
+After firewall configuration, your application will be accessible at:
+- **Local Network**: `http://YOUR_SERVER_IP:3001`
+- **External Access**: Requires port forwarding on your router
+
+### Security Considerations
+
+- Only open ports you need
+- Consider using a reverse proxy for production
+- Implement authentication for external access
+- Regularly update your system and firewall rules
+
 ## 🛠️ Troubleshooting
 
 ### Device Discovery Issues

@@ -217,6 +217,28 @@ docker exec -it iot-mosquitto mosquitto_sub -t "instrument/#"
 
 ## 🔒 **Security & Production**
 
+### **Firewall Configuration**
+
+**Critical**: Ubuntu's default firewall (ufw) blocks application ports. Configure before first use:
+
+```bash
+# Automatic configuration (recommended)
+sudo ufw allow 3001/tcp  # Frontend web interface
+sudo ufw allow 38001/tcp # Backend API
+sudo ufw allow 1883/tcp  # MQTT broker
+sudo ufw allow 9001/tcp  # MQTT WebSocket
+sudo ufw reload
+
+# Check status
+sudo ufw status numbered
+```
+
+**Port Summary:**
+- **3001**: Web interface (HTR-A & HTR-B controls)
+- **38001**: Backend API (temperature and control)
+- **1883**: MQTT (real-time data)
+- **9001**: MQTT WebSocket (browser connections)
+
 ### **Production Considerations**
 - Change default MQTT passwords
 - Enable SSL/TLS for web interface
