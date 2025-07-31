@@ -1,17 +1,19 @@
-# IoT Control System - Development Environment
+# IoT Dual Heater Control System - Development Environment
 
-This document describes how to set up and use the development environment for the IoT Control System on your local PC.
+This document describes how to set up and use the development environment for the IoT Dual Heater Control System with Docker Compose.
 
 ## 🎯 Overview
 
-The development environment is designed for local development and testing while preserving all real instrument configurations from the production system. It runs on Kubernetes with NodePort services for easy local access.
+The development environment provides a complete multi-unit setup for developing and testing the dual heater control system. It supports both single-unit and multi-unit deployments with real IO-Link integration, shared temperature sensing, and advanced PID control features.
 
 ## 🔧 Prerequisites
 
 ### Required Software
-- **Docker Desktop** (with Kubernetes enabled)
-- **kubectl** command-line tool
+- **Docker Desktop** (latest version)
+- **Docker Compose** (v2.0+)
 - **Git** (for version control)
+- **Node.js 18+** (optional, for direct frontend development)
+- **Python 3.8+** (optional, for direct backend development)
 
 ### Installation Instructions
 
@@ -20,277 +22,503 @@ The development environment is designed for local development and testing while 
 # Install Docker Desktop
 brew install --cask docker
 
-# Install kubectl
-brew install kubectl
-
-# Install Git (if not already installed)
+# Install Git
 brew install git
+
+# Optional: Node.js and Python
+brew install node python@3.11
 ```
 
 #### Ubuntu/Debian
 ```bash
-# Install Docker
+# Install Docker and Docker Compose
 sudo apt-get update
-sudo apt-get install docker.io
+sudo apt-get install docker.io docker-compose-plugin
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo usermod -aG docker $USER
 
-# Install kubectl
-sudo apt-get install kubectl
-
-# Install Git (if not already installed)
+# Install Git
 sudo apt-get install git
+
+# Optional: Node.js and Python
+sudo apt-get install nodejs npm python3 python3-pip
 ```
 
 #### Windows
 - Download and install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop)
-- Download [kubectl for Windows](https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/)
 - Download and install [Git for Windows](https://git-scm.com/download/win)
 
 ## 🚀 Quick Start
 
-### 1. Start Development Environment
+### 1. Clone Repository
 ```bash
-# Make scripts executable
-chmod +x k8s/dev-deploy.sh
-chmod +x k8s/dev-cleanup.sh
-
-# Deploy development environment
-./k8s/dev-deploy.sh
+git clone https://github.com/Offv/iot-control-server.git
+cd iot-control-server
 ```
 
-### 2. Access the Application
-- **Frontend**: http://localhost:33000
-- **Backend API**: http://localhost:38000
-- **MQTT**: localhost:31883
-- **MQTT WebSocket**: ws://localhost:39001
-- **Database**: localhost:35432 (if needed)
+### 2. Start Development Environment
 
-### 3. Stop Development Environment
 ```bash
-./k8s/dev-cleanup.sh
+# Start multi-unit development environment
+./dev-start.sh
+
+# Or manually start with Docker Compose
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+### 3. Access Applications
+
+#### Unit 1 (Primary)
+- **Dual Control Interface**: http://localhost:33001
+- **Backend API**: http://localhost:38001
+- **API Documentation**: http://localhost:38001/docs
+
+#### Unit 2 (Secondary)  
+- **Dual Control Interface**: http://localhost:33002
+- **Backend API**: http://localhost:38002
+- **API Documentation**: http://localhost:38002/docs
+
+#### Shared Services
+- **MQTT Broker**: localhost:1883
+- **MQTT Web UI**: http://localhost:18083 (admin/public)
+- **PostgreSQL Database**: localhost:5432
+
+### 4. Stop Development Environment
+```bash
+# Stop all services
+./dev-stop.sh
+
+# Or manually stop
+docker-compose -f docker-compose.dev.yml down
 ```
 
 ## 🏗️ Development Architecture
 
-### Services
-- **MQTT Broker**: Eclipse Mosquitto 2.0
-- **Backend**: Python FastAPI with real IO-Link integration
-- **Frontend**: React + Tailwind CSS + Material-UI
-- **Database**: PostgreSQL (optional)
+### Services Overview
 
-### Real Instrument Configuration
-All real instrument configurations are preserved from the production system:
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Frontend-Unit1 │    │  Frontend-Unit2 │    │   PostgreSQL    │
+│   Port: 33001   │    │   Port: 33002   │    │   Port: 5432    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┼───┐
+                                 │                       │   │
+┌─────────────────┐    ┌─────────────────┐              │   │
+│  Backend-Unit1  │    │  Backend-Unit2  │              │   │
+│   Port: 38001   │    │   Port: 38002   │              │   │
+└─────────────────┘    └─────────────────┘              │   │
+         │                       │                       │   │
+         └───────────────────────┼───────────────────────┼───┼───┐
+                                 │                       │   │   │
+                    ┌─────────────────┐                  │   │   │
+                    │ MQTT Broker     │◄─────────────────┘   │   │
+                    │ Port: 1883      │                      │   │
+                    │ Web: 18083      │                      │   │
+                    └─────────────────┘                      │   │
+                                 │                           │   │
+                    ┌─────────────────┐                      │   │
+                    │  IO-Link Master │                      │   │
+                    │ 192.168.30.29   │◄─────────────────────┘   │
+                    │ Temp: Port 6    │                          │
+                    │ HTR: Ports 1-4  │◄─────────────────────────┘
+                    └─────────────────┘
+```
 
-- **IO-Link Master IP**: 192.168.30.29
-- **Device IDs**: 
-  - HTR-A: 00-02-01-6D-55-8A
-  - HTR-B: 00-02-01-6D-55-86
-- **Temperature Sensor**: Port 6
-- **MQTT Topics**: instruments_ti, instrument/htr_a
-- **Temperature Conversion**: 031B → 79.5°F
+### Technology Stack
+
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
+- **Backend**: Python FastAPI + asyncio + aiohttp
+- **MQTT**: Eclipse Mosquitto 2.0 with WebSocket support
+- **Database**: PostgreSQL 15 with async support
+- **Containerization**: Docker + Docker Compose
+- **Development**: Hot reload for both frontend and backend
 
 ## 🔄 Development Workflow
 
-### 1. Code Changes
-Edit code in the following directories:
-- **Backend**: `./backend/src/`
-- **Frontend**: `./frontend/src/`
+### 1. Making Code Changes
 
-### 2. Apply Changes
-After making code changes, restart the respective service:
-
+#### Frontend Development
 ```bash
-# Restart backend
-kubectl rollout restart deployment/backend-dev -n iot-control-dev
+# The containers automatically detect changes and reload
+# Edit files in: ./frontend/src/
 
-# Restart frontend
-kubectl rollout restart deployment/frontend-dev -n iot-control-dev
+# For faster development, you can also run frontend locally:
+cd frontend
+npm install
+npm run dev
+# Access at http://localhost:3000
 ```
 
-### 3. Monitor Logs
+#### Backend Development
 ```bash
-# Backend logs
-kubectl logs -n iot-control-dev -f -l app=backend-dev
+# The containers automatically detect changes and reload
+# Edit files in: ./backend/src/
 
-# Frontend logs
-kubectl logs -n iot-control-dev -f -l app=frontend-dev
-
-# MQTT logs
-kubectl logs -n iot-control-dev -f -l app=mqtt-broker-dev
+# For faster development, you can also run backend locally:
+cd backend
+pip install -r requirements.txt
+python src/main.py
+# Access at http://localhost:8000
 ```
 
-### 4. Access Container Shell
-```bash
-# Backend shell
-kubectl exec -it -n iot-control-dev deployment/backend-dev -- /bin/bash
+### 2. Monitor Development
 
-# Frontend shell
-kubectl exec -it -n iot-control-dev deployment/frontend-dev -- /bin/bash
+```bash
+# View all logs
+docker-compose -f docker-compose.dev.yml logs -f
+
+# View specific service logs
+docker-compose -f docker-compose.dev.yml logs -f frontend-unit1
+docker-compose -f docker-compose.dev.yml logs -f backend-unit1
+docker-compose -f docker-compose.dev.yml logs -f mosquitto
+
+# Monitor MQTT traffic
+docker exec -it iot-mosquitto mosquitto_sub -t "instrument/#"
 ```
 
-## 📊 Monitoring and Debugging
+### 3. Development Commands
 
-### Check Service Status
 ```bash
-# View all pods
-kubectl get pods -n iot-control-dev
+# Restart specific services
+docker-compose -f docker-compose.dev.yml restart backend-unit1
+docker-compose -f docker-compose.dev.yml restart frontend-unit1
 
-# View all services
-kubectl get services -n iot-control-dev
+# Rebuild containers after dependency changes
+docker-compose -f docker-compose.dev.yml build backend-unit1
+docker-compose -f docker-compose.dev.yml up -d backend-unit1
 
-# View pod details
-kubectl describe pod <pod-name> -n iot-control-dev
-```
+# Access container shells
+docker exec -it iot-backend-unit1 bash
+docker exec -it iot-frontend-unit1 bash
 
-### Check Resource Usage
-```bash
-# View resource usage
-kubectl top pods -n iot-control-dev
-
-# View node resource usage
-kubectl top nodes
-```
-
-### Debug Network Issues
-```bash
-# Test MQTT connection
-mosquitto_pub -h localhost -p 31883 -t test/topic -m "test message"
-
-# Test backend API
-curl http://localhost:38000/api/status
-
-# Test frontend
-curl http://localhost:33000
+# View container resource usage
+docker stats
 ```
 
 ## 🔧 Configuration
 
 ### Environment Variables
-The development environment uses the following key environment variables:
 
-#### Backend
-- `MQTT_HOST`: mqtt-service-dev
-- `MQTT_PORT`: 1883
-- `IOLINK_MASTER_IP`: 192.168.30.29
-- `IOLINK_TEMP_PORT`: 6
-- `HTR_A_DEVICE_ID`: 00-02-01-6D-55-8A
-- `HTR_B_DEVICE_ID`: 00-02-01-6D-55-86
-- `LOG_LEVEL`: DEBUG
+The development environment uses comprehensive environment variables for both units:
 
-#### Frontend
-- `VITE_MQTT_HOST`: localhost
-- `VITE_MQTT_PORT`: 1883
-- `VITE_MQTT_WS_PORT`: 9001
-- `VITE_HTR_A_IP`: 192.168.30.29
-- `VITE_HTR_A_DEVICE_ID`: 00-02-01-6D-55-8A
-- `VITE_API_BASE_URL`: http://localhost:38000
-
-### Port Mappings
-- **Frontend**: 33000 → 3000
-- **Backend**: 38000 → 8000
-- **MQTT**: 31883 → 1883
-- **MQTT WebSocket**: 39001 → 9001
-- **Database**: 35432 → 5432
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### 1. Pods Not Starting
+#### Backend Configuration
 ```bash
-# Check pod status
-kubectl get pods -n iot-control-dev
+# Unit 1 Backend
+UNIT_NUMBER=1
+HTR_A_IP=192.168.30.29
+HTR_B_IP=192.168.30.33
+HTR_A_DEVICE_ID=00-02-01-6D-55-8A
+HTR_B_DEVICE_ID=00-02-01-6D-55-86
+HTR_A_TEMP_TOPIC=instrument/unit1/htr_a/temperature
+HTR_B_TEMP_TOPIC=instrument/unit1/htr_a/temperature  # Shared temperature
+MQTT_HOST=mosquitto
+DATABASE_URL=postgresql://postgres:password@database:5432/iot_control
 
-# Check pod events
-kubectl describe pod <pod-name> -n iot-control-dev
-
-# Check pod logs
-kubectl logs <pod-name> -n iot-control-dev
+# Unit 2 Backend
+UNIT_NUMBER=2
+HTR_A_IP=192.168.30.29
+HTR_B_IP=192.168.30.33
+HTR_B_TEMP_TOPIC=instrument/unit2/htr_a/temperature  # Shared temperature
 ```
 
-#### 2. Services Not Accessible
+#### Frontend Configuration
 ```bash
-# Check service status
-kubectl get services -n iot-control-dev
-
-# Check service endpoints
-kubectl get endpoints -n iot-control-dev
-
-# Test service connectivity
-kubectl exec -it <pod-name> -n iot-control-dev -- curl <service-name>
+# Unit 1 Frontend
+VITE_UNIT_NUMBER=1
+VITE_HTR_A_IP=192.168.30.29
+VITE_HTR_B_IP=192.168.30.33
+VITE_HTR_A_TOPIC=instrument/unit1/htr_a/temperature
+VITE_HTR_B_TOPIC=instrument/unit1/htr_a/temperature  # Shared temperature
+VITE_MQTT_HOST=localhost
+VITE_MQTT_PORT=1883
+VITE_API_BASE_URL=http://localhost:38001
 ```
 
-#### 3. MQTT Connection Issues
-```bash
-# Check MQTT broker logs
-kubectl logs -n iot-control-dev -l app=mqtt-broker-dev
+### Network Configuration
 
-# Test MQTT connection from inside cluster
-kubectl exec -it -n iot-control-dev deployment/backend-dev -- mosquitto_pub -h mqtt-service-dev -t test -m "test"
+```yaml
+networks:
+  iot-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 ```
 
-#### 4. IO-Link Connection Issues
-```bash
-# Check backend logs for IO-Link errors
-kubectl logs -n iot-control-dev -l app=backend-dev | grep -i iolink
+### Volume Mounts for Development
 
-# Test IO-Link connectivity from backend pod
-kubectl exec -it -n iot-control-dev deployment/backend-dev -- curl http://192.168.30.29/iolinkmaster/port%5B6%5D/iolinkdevice/pdin/getdata
+```yaml
+volumes:
+  # Hot reload for frontend
+  - ./frontend:/app
+  - /app/node_modules
+  
+  # Hot reload for backend
+  - ./backend:/app
+  - /app/__pycache__
+  
+  # Persistent data
+  - postgres_data:/var/lib/postgresql/data
+  - mosquitto_data:/mosquitto/data
+  - mosquitto_logs:/mosquitto/log
 ```
 
-### Reset Development Environment
-If you encounter persistent issues, you can reset the entire environment:
+## 🎛️ Feature Development
+
+### Dual Heater Control Features
+
+The system includes these advanced features for development:
+
+#### 1. Shared Temperature Sensing
+```typescript
+// Frontend: Both heaters subscribe to same temperature topic
+const temperatureTopic = `instrument/unit${unitNumber}/htr_a/temperature`;
+```
+
+#### 2. State Persistence
+```typescript
+// All settings persist across page refreshes
+interface PersistentState {
+  isAuto: boolean;
+  setpoint: number;
+  sections: boolean[];
+  kp: number;
+  ki: number;
+  kd: number;
+  controlMode: string;
+}
+```
+
+#### 3. Advanced PID Control
+```python
+# Backend: Stepped output system with section management
+def calculate_pid_output(current_temp, setpoint, kp, ki, kd):
+    # PID calculation with stepped output
+    # Section control logic (0→1→2→3 for add, 3→2→1→0 for remove)
+```
+
+#### 4. Timer-based Section Control
+```typescript
+// Individual timer settings per unit (5-120 seconds)
+const timerSize = loadTimerSize(`unit${unitNumber}htr${htrType}time`);
+```
+
+### Testing New Features
+
+#### 1. MQTT Testing
+```bash
+# Test temperature data
+mosquitto_pub -h localhost -p 1883 -t "instrument/unit1/htr_a/temperature" -m "75.5"
+
+# Monitor all topics
+mosquitto_sub -h localhost -p 1883 -t "instrument/#"
+
+# Test section control
+mosquitto_pub -h localhost -p 1883 -t "instrument/unit1/htr_a/sections" -m '{"sections":[true,true,false,false]}'
+```
+
+#### 2. API Testing
+```bash
+# Test backend health
+curl http://localhost:38001/api/status
+
+# Test IO-Link communication
+curl -X POST "http://localhost:38001/api/iolink/192.168.30.29/port/1" \
+  -H "Content-Type: application/json" \
+  -d '{"value": true}'
+
+# Get temperature reading
+curl http://localhost:38001/api/temperature
+```
+
+#### 3. Frontend Testing
+```bash
+# Test dual control interface
+open http://localhost:33001
+
+# Check browser developer tools for:
+# - localStorage persistence
+# - MQTT WebSocket connections
+# - React component states
+# - PID calculations
+```
+
+## 🐛 Debugging
+
+### Frontend Debugging
 
 ```bash
-# Clean up everything
-./k8s/dev-cleanup.sh
+# View React development tools
+# Install React Developer Tools browser extension
 
-# Wait a moment
-sleep 5
+# Monitor state changes
+# Open browser DevTools → React tab
 
-# Redeploy
-./k8s/dev-deploy.sh
+# Check localStorage persistence
+# DevTools → Application → Local Storage
+
+# Monitor MQTT connections
+# DevTools → Network → WS (WebSocket)
+
+# View console logs
+# DevTools → Console
+```
+
+### Backend Debugging
+
+```bash
+# View detailed logs
+docker-compose -f docker-compose.dev.yml logs -f backend-unit1
+
+# Access backend container
+docker exec -it iot-backend-unit1 bash
+
+# Test IO-Link connectivity
+curl "http://192.168.30.29/iolinkmaster/port%5B6%5D/iolinkdevice/pdin/getdata"
+
+# Monitor FastAPI logs
+tail -f /app/logs/backend.log
+```
+
+### MQTT Debugging
+
+```bash
+# Access MQTT container
+docker exec -it iot-mosquitto bash
+
+# Check MQTT logs
+docker-compose -f docker-compose.dev.yml logs -f mosquitto
+
+# Monitor client connections
+mosquitto_sub -h localhost -p 1883 -t '$SYS/broker/clients/connected'
+
+# Test WebSocket connection
+# Use browser DevTools → Network → WS
+```
+
+### Database Debugging
+
+```bash
+# Access PostgreSQL
+docker exec -it iot-database psql -U postgres -d iot_control
+
+# View tables
+\dt
+
+# Check connection logs
+docker-compose -f docker-compose.dev.yml logs -f database
+```
+
+## 🔍 Advanced Development
+
+### Custom Unit Configuration
+
+```bash
+# Add new unit interactively
+./install-unit-interactive.sh
+
+# Manual unit configuration
+cp docker-compose.unit1.yml docker-compose.unit3.yml
+# Edit unit3 configuration
+# Deploy: docker-compose -f docker-compose.dev.yml -f docker-compose.unit3.yml up -d
+```
+
+### Performance Optimization
+
+```bash
+# Monitor container resources
+docker stats
+
+# Optimize React build
+cd frontend && npm run build
+
+# Profile Python backend
+python -m cProfile src/main.py
+
+# Monitor MQTT throughput
+mosquitto_sub -h localhost -p 1883 -t "instrument/#" -C 1000
+```
+
+### Code Quality
+
+```bash
+# Frontend linting
+cd frontend && npm run lint
+
+# Backend linting  
+cd backend && python -m flake8 src/
+
+# Type checking
+cd frontend && npm run type-check
+cd backend && python -m mypy src/
+```
+
+## 🚀 Deployment Preparation
+
+### Build Production Images
+
+```bash
+# Build optimized images
+docker-compose -f docker-compose.yml build
+
+# Test production build
+docker-compose -f docker-compose.yml up -d
+```
+
+### Environment Migration
+
+```bash
+# Export development data
+docker exec iot-database pg_dump -U postgres iot_control > dev_backup.sql
+
+# Import to production
+# (Run on production server)
 ```
 
 ## 📚 Additional Resources
 
-### Useful Commands
+### Useful Development Commands
+
 ```bash
-# View all resources in development namespace
-kubectl get all -n iot-control-dev
+# Quick restart everything
+./dev-start.sh
 
-# View ConfigMaps
-kubectl get configmaps -n iot-control-dev
+# Reset development environment
+docker-compose -f docker-compose.dev.yml down -v
+docker system prune -f
+./dev-start.sh
 
-# View Secrets
-kubectl get secrets -n iot-control-dev
+# Update dependencies
+cd frontend && npm update
+cd backend && pip install -r requirements.txt --upgrade
 
-# View events
-kubectl get events -n iot-control-dev --sort-by='.lastTimestamp'
+# Generate API documentation
+cd backend && python -c "import src.main; print('Docs at: http://localhost:38001/docs')"
 ```
 
-### Development Tips
-1. **Use NodePort services** for easy local access
-2. **Mount source code** for live development
-3. **Preserve real configurations** from production
-4. **Monitor logs** for debugging
-5. **Test with real instruments** when possible
+### Development Best Practices
 
-### Performance Optimization
-- Use resource limits to prevent resource exhaustion
-- Monitor memory and CPU usage
-- Scale services as needed for development
-- Use persistent volumes for data that needs to survive restarts
+1. **🔄 Use Hot Reload**: Edit files directly, containers auto-reload
+2. **📊 Monitor Logs**: Always keep logs visible during development
+3. **🧪 Test Incrementally**: Test each feature as you develop
+4. **💾 Persist State**: Use localStorage for UI state persistence
+5. **📱 Responsive Design**: Test on different screen sizes
+6. **🔧 PID Tuning**: Use the built-in PID tuning interface
+7. **⏱️ Timer Testing**: Verify timer functionality with different settings
 
-## 🔒 Security Notes
+### Performance Monitoring
 
-The development environment is configured for ease of use and may not include all production security measures:
+```bash
+# Monitor temperature update frequency
+mosquitto_sub -h localhost -p 1883 -t "instrument/unit1/htr_a/temperature" | ts
 
-- MQTT broker allows anonymous connections
-- Database uses simple passwords
-- Services are exposed on NodePort
-- Source code is mounted for development
+# Check response times
+curl -w "@curl-format.txt" -o /dev/null -s "http://localhost:38001/api/status"
 
-For production deployment, refer to the production Kubernetes manifests in the `k8s/` directory. 
+# Monitor WebSocket connections
+ss -tulpn | grep :1883
+```
+
+This development environment provides everything needed to build, test, and refine the advanced dual heater control system with real-time temperature monitoring, sophisticated PID control, and persistent state management! 🔥 
