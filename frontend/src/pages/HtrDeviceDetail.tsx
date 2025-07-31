@@ -178,29 +178,29 @@ const PULSE_PERIOD = 1000; // 1 second pulse period
 const MIN_PULSE_WIDTH = 50; // Minimum pulse width in milliseconds
 
 // Define your output steps for cascade/stepped control
-const OUTPUT_STEPS = [0, 2, 5, 9, 12, 15, 18, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
+// const OUTPUT_STEPS = [0, 2, 5, 9, 12, 15, 18, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
 
 // Helper function to save state to localStorage
-const saveState = (id: string, state: Partial<HtrConfig>) => {
-  try {
-    const key = STORAGE_KEY + id;
-    localStorage.setItem(key, JSON.stringify(state));
-  } catch (error) {
-    console.error('Error saving state:', error);
-  }
-};
+// const saveState = (id: string, state: Partial<HtrConfig>) => {
+//   try {
+//     const key = STORAGE_KEY + id;
+//     localStorage.setItem(key, JSON.stringify(state));
+//   } catch (error) {
+//     console.error('Error saving state:', error);
+//   }
+// };
 
 // Helper function to load state from localStorage
-const loadState = (id: string): Partial<HtrConfig> | null => {
-  try {
-    const key = STORAGE_KEY + id;
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : null;
-  } catch (error) {
-    console.error('Error loading state:', error);
-    return null;
-  }
-};
+// const loadState = (id: string): Partial<HtrConfig> | null => {
+//   try {
+//     const key = STORAGE_KEY + id;
+//     const saved = localStorage.getItem(key);
+//     return saved ? JSON.parse(saved) : null;
+//   } catch (error) {
+//     console.error('Error loading state:', error);
+//     return null;
+//   }
+// };
 
 const CircularTimer: React.FC<{
   timeLeft: number;
@@ -248,13 +248,13 @@ const CircularTimer: React.FC<{
 const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp }) => {
   const deviceConfig = DEVICE_CONFIGS[deviceType as keyof typeof DEVICE_CONFIGS];
   
-  const [device] = useState<HtrDevice>({
-    id: deviceType,
-    name: deviceConfig.name,
-    ipAddress: ioLinkIp,
-    htrSystem: deviceType,
-    ioLinkIp: ioLinkIp
-  });
+  // const [device] = useState<HtrDevice>({
+  //   id: deviceType,
+  //   name: deviceConfig.name,
+  //   ipAddress: ioLinkIp,
+  //   htrSystem: deviceType,
+  //   ioLinkIp: ioLinkIp
+  // });
 
   const [mqttConnected, setMqttConnected] = useState(false);
   const [lastMqttUpdate, setLastMqttUpdate] = useState<Date | null>(null);
@@ -266,10 +266,10 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   const [showDebugLog, setShowDebugLog] = useState(false); // Hidden by default for operators
   const [stateRestored, setStateRestored] = useState(false);
   const [timeUntilChange, setTimeUntilChange] = useState(15000); // Will be updated by timer effect
-  const [currentAction, setCurrentAction] = useState<'add' | 'remove' | 'none'>('none');
+  // const [currentAction, setCurrentAction] = useState<'add' | 'remove' | 'none'>('none');
   const [debugLog, setDebugLog] = useState<string[]>([]);
-  const [realTemp, setRealTemp] = useState<number>(0);
-  const [tempHistory, setTempHistory] = useState<{temp: number, timestamp: number}[]>([]);
+  // const [realTemp, setRealTemp] = useState<number>(0);
+  // const [tempHistory, setTempHistory] = useState<{temp: number, timestamp: number}[]>([]);
 
   const addDebugLog = (message: string) => {
     console.log(message); // For browser console
@@ -364,138 +364,124 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
 
   // MQTT setup with reduced logging
   useEffect(() => {
-    const setupMqtt = () => {
-      if (!staticMqttClient) {
-        const wsUrl = `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}`;
+    // const setupMqtt = () => {
+    //   if (!staticMqttClient) {
+    //     const wsUrl = `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}`;
         
-        const client = mqtt.connect(wsUrl, {
-          ...MQTT_OPTIONS,
-          clientId: `${MQTT_CONFIG.clientId}_${deviceType}_${Date.now()}`, // Ensure unique client ID
-          keepalive: 60, // Increase keepalive interval for stability
-          reconnectPeriod: 5000, // Slower reconnection for stability
-          connectTimeout: 10000, // Longer timeout
-          clean: false // Maintain session for better stability
-        });
+    //     const client = mqtt.connect(wsUrl, {
+    //       ...MQTT_OPTIONS,
+    //       clientId: `${MQTT_CONFIG.clientId}_${deviceType}_${Date.now()}`, // Ensure unique client ID
+    //       keepalive: 60, // Increase keepalive interval for stability
+    //       reconnectPeriod: 5000, // Slower reconnection for stability
+    //       connectTimeout: 10000, // Longer timeout
+    //       clean: false // Maintain session for better stability
+    //     });
 
-        client.on('connect', () => {
-          setMqttConnected(true);
-          setMqttStatus('Connected');
-          setMqttReconnectAttempts(0);
-          addDebugLog(`MQTT: ${deviceType} Connected and subscribed to shared temperature topics`);
+    //     client.on('connect', () => {
+    //       setMqttConnected(true);
+    //       setMqttStatus('Connected');
+    //       setMqttReconnectAttempts(0);
+    //       addDebugLog(`MQTT: ${deviceType} Connected and subscribed to shared temperature topics`);
           
-          // Get unit-specific topic
-          const unitName = import.meta.env.VITE_UNIT_NAME || 'unit1';
+    //       // Get unit-specific topic
+    //       const unitName = import.meta.env.VITE_UNIT_NAME || 'unit1';
           
-          // SHARED TEMPERATURE: Both HTR-A and HTR-B subscribe to HTR-A temperature topics
-          // since they share the same physical temperature sensor on 192.168.30.29:port[6]
-          const sharedTempTopic = `instrument/${unitName}/htr-a/temperature`;
+    //       // SHARED TEMPERATURE: Both HTR-A and HTR-B subscribe to HTR-A temperature topics
+    //       // since they share the same physical temperature sensor on 192.168.30.29:port[6]
+    //       const sharedTempTopic = `instrument/${unitName}/htr-a/temperature`;
           
-          // Subscribe to shared temperature topics (always use HTR-A source)
-          client.subscribe('instruments_ti', { qos: 1 });
-          client.subscribe('instrument/htr_a', { qos: 1 }); // Primary temperature source
-          client.subscribe(sharedTempTopic, { qos: 1 }); // Shared temperature topic
-        });
+    //       // Subscribe to shared temperature topics (always use HTR-A source)
+    //       client.subscribe('instruments_ti', { qos: 1 });
+    //       client.subscribe('instrument/htr_a', { qos: 1 }); // Primary temperature source
+    //       client.subscribe(sharedTempTopic, { qos: 1 }); // Shared temperature topic
+    //     });
 
-        client.on('error', (error) => {
-          setMqttStatus('Error');
-          addDebugLog(`MQTT Error: ${error.message}`);
-        });
+    //     client.on('error', (error) => {
+    //       setMqttStatus('Error');
+    //       addDebugLog(`MQTT Error: ${error.message}`);
+    //     });
 
-        client.on('reconnect', () => {
-          setMqttStatus('Reconnecting...');
-        });
+    //     client.on('reconnect', () => {
+    //       setMqttStatus('Reconnecting...');
+    //     });
 
-        client.on('offline', () => {
-          setMqttConnected(false);
-          setMqttStatus('Offline');
-        });
+    //     client.on('offline', () => {
+    //       setMqttConnected(false);
+    //       setMqttStatus('Offline');
+    //     });
 
-        client.on('close', () => {
-          setMqttConnected(false);
-          setMqttStatus('Disconnected');
-        });
+    //     client.on('close', () => {
+    //       setMqttConnected(false);
+    //       setMqttStatus('Disconnected');
+    //     });
 
-        client.on('message', (topic, message) => {
-          setLastMqttUpdate(new Date());
-          try {
-            const data = JSON.parse(message.toString());
+    //     client.on('message', (topic, message) => {
+    //       setLastMqttUpdate(new Date());
+    //       try {
+    //         const data = JSON.parse(message.toString());
             
-            // SHARED TEMPERATURE: Both HTR-A and HTR-B use HTR-A temperature topics
-            const unitName = import.meta.env.VITE_UNIT_NAME || 'unit1';
-            const sharedTempTopic = `instrument/${unitName}/htr-a/temperature`;
+    //         // SHARED TEMPERATURE: Both HTR-A and HTR-B use HTR-A temperature topics
+    //         const unitName = import.meta.env.VITE_UNIT_NAME || 'unit1';
+    //         const sharedTempTopic = `instrument/${unitName}/htr-a/temperature`;
             
-            // Handle processed temperature data from shared HTR-A topics
-            if ((topic === 'instruments_ti' || topic === sharedTempTopic) && 
-                data.data?.payload?.['/processdatamaster/temperature']?.data) {
-              const tempValue = data.data.payload['/processdatamaster/temperature'].data;
-              if (typeof tempValue === 'number' && tempValue > 0) {
-                forceTemperatureUpdate(tempValue);
-              }
-            }
-            // Handle raw hex temperature data from shared HTR-A topics (port 6)  
-            else if ((topic === 'instrument/htr_a' || topic === sharedTempTopic) && 
-                     data.data?.payload?.['/iolinkmaster/port[6]/iolinkdevice/pdin']?.data) {
-              const hexTemp = data.data.payload['/iolinkmaster/port[6]/iolinkdevice/pdin'].data;
-              const tempF = convertHexToFahrenheit(hexTemp);
-              if (tempF > 0) {
-                forceTemperatureUpdate(tempF);
-              }
-            }
-          } catch (error) {
-            // Silent error handling for malformed messages
-          }
-        });
+    //         // Handle processed temperature data from shared HTR-A topics
+    //         if ((topic === 'instruments_ti' || topic === sharedTempTopic) && 
+    //             data.data?.payload?.['/processdatamaster/temperature']?.data) {
+    //           const tempValue = data.data.payload['/processdatamaster/temperature'].data;
+    //           if (typeof tempValue === 'number' && tempValue > 0) {
+    //             forceTemperatureUpdate(tempValue);
+    //           }
+    //         }
+    //         // Handle raw hex temperature data from shared HTR-A topics (port 6)  
+    //         else if ((topic === 'instrument/htr_a' || topic === sharedTempTopic) && 
+    //                  data.data?.payload?.['/iolinkmaster/port[6]/iolinkdevice/pdin']?.data) {
+    //           const hexTemp = data.data.payload['/iolinkmaster/port[6]/iolinkdevice/pdin'].data;
+    //           const tempF = convertHexToFahrenheit(hexTemp);
+    //           if (tempF > 0) {
+    //             forceTemperatureUpdate(tempF);
+    //           }
+    //         }
+    //       } catch (error) {
+    //         // Silent error handling for malformed messages
+    //       }
+    //     });
 
-        staticMqttClient = client;
-      }
-    };
-
-    const watchdog = setInterval(() => {
-      // Only check for stale connections, let MQTT.js handle reconnections
-      if (mqttConnected && lastMqttUpdate && Date.now() - lastMqttUpdate.getTime() > 30000) {
-        // No MQTT updates for 30 seconds, consider connection stale
-        addDebugLog('MQTT: Connection stale (no updates for 30s)');
-        setMqttStatus('Stale Connection');
-      } else if (mqttConnected) {
-        setMqttStatus('Connected');
-      }
-      // Don't force reconnections - let MQTT.js built-in reconnect logic handle it
-    }, 10000); // Check every 10 seconds, reduced aggressiveness
-
-    return () => clearInterval(watchdog);
+    //     staticMqttClient = client;
+    //   }
+    // };
   }, [mqttConnected, lastMqttUpdate, mqttReconnectAttempts, deviceType]);
 
   // Function to analyze temperature trend from history
-  const analyzeTrendFromHistory = (history: {temp: number, timestamp: number}[]) => {
-    if (history.length < 3) return 'stable';
+  // const analyzeTrendFromHistory = (history: {temp: number, timestamp: number}[]) => {
+  //   if (history.length < 3) return 'stable';
     
-    // Get the last 3 readings
-    const recent = history.slice(-3);
-    const temps = recent.map(h => h.temp);
+  //   // Get the last 3 readings
+  //   const recent = history.slice(-3);
+  //   const temps = recent.map(h => h.temp);
     
-    // Calculate if there's a consistent trend
-    const first = temps[0];
-    const middle = temps[1];
-    const last = temps[2];
+  //   // Calculate if there's a consistent trend
+  //   const first = temps[0];
+  //   const middle = temps[1];
+  //   const last = temps[2];
     
-    // Check if all three readings show the same trend
-    if (first < middle && middle < last) {
-      return 'rising';
-    } else if (first > middle && middle > last) {
-      return 'falling';
-    } else {
-      return 'stable';
-    }
-  };
+  //   // Check if all three readings show the same trend
+  //   if (first < middle && middle < last) {
+  //     return 'rising';
+  //   } else if (first > middle && middle > last) {
+  //     return 'falling';
+  //   } else {
+  //     return 'stable';
+  //   }
+  // };
 
   // Add a force update function that always updates the state
   const forceTemperatureUpdate = (newTemp: number) => {
     if (newTemp > 0) {
       // Update temperature history (keep last 10 readings)
-      setTempHistory(prev => {
-        const newHistory = [...prev, { temp: newTemp, timestamp: Date.now() }];
-        return newHistory.slice(-10); // Keep only last 10 readings
-      });
+      // setTempHistory(prev => {
+      //   const newHistory = [...prev, { temp: newTemp, timestamp: Date.now() }];
+      //   return newHistory.slice(-10); // Keep only last 10 readings
+      // });
 
       setHtrConfig(prev => {
         // Minimum change threshold to detect trend (0.5°F)
@@ -675,31 +661,16 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
 
   // Function to send IO-Link commands
   const sendIoLinkCommand = (port: string, state: boolean) => {
-    // Extract port number from string like 'port[1]/iolinkdevice/pdout'
-    const match = port.match(/port\[(\d+)\]/);
-    if (match) {
-      const portNum = parseInt(match[1], 10);
-      if (portNum >= 1 && portNum <= 6) {
-        addDebugLog(`IO-Link: Sending command to port ${portNum} = ${state}`);
-        sendIoLinkHttpCommand(portNum, state);
-        return;
-      }
-    }
-    // fallback to MQTT for other ports or if parsing fails
-    if (!staticMqttClient || !mqttConnected) {
-      addDebugLog(`MQTT Error: Cannot send command - not connected`);
-      return;
-    }
-    const topic = `${deviceConfig.deviceId}/iolinkmaster/${port}`;
+    const topic = `instrument/${deviceType.toLowerCase()}/iolink/${port}`;
     const message = state ? '1' : '0';
     addDebugLog(`Sending command: ${topic} -> ${message}`);
-    staticMqttClient.publish(topic, message, { qos: 1 }, (error?: Error) => {
-      if (error) {
-        addDebugLog(`MQTT Error: Failed to publish to ${topic} - ${error.message}`);
-      } else {
-        addDebugLog(`MQTT Success: Published ${message} to ${topic}`);
-      }
-    });
+    // staticMqttClient.publish(topic, message, { qos: 1 }, (error?: Error) => {
+    //   if (error) {
+    //     addDebugLog(`MQTT Error: Failed to publish to ${topic} - ${error.message}`);
+    //   } else {
+    //     addDebugLog(`MQTT Success: Published ${message} to ${topic}`);
+    //   }
+    // });
   };
 
   // Modified handleAutoToggle to prevent immediate section activation
@@ -779,34 +750,34 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   const lowPowerStartTimeRef = useRef<number | null>(null);
   
   // Simple function to add next section when PID stays 100% for 15 seconds
-  const addNextSection = (config: HtrConfig): boolean => {
-    const activeSections = config.sections.filter(Boolean).length;
-    if (activeSections >= 4) return false; // All sections already active
+  // const addNextSection = (config: HtrConfig): boolean => {
+  //   const activeSections = config.sections.filter(Boolean).length;
+  //   if (activeSections >= 4) return false; // All sections already active
     
-    // Find next inactive section to add (skip section 1 as it's always on)
-    for (let i = 1; i < config.sections.length; i++) {
-      if (!config.sections[i]) {
-        addDebugLog(`Add Section: Adding section ${i + 1} (Active sections: ${activeSections})`);
-        return true; // Found section to add
-      }
-    }
-    return false; // No sections to add
-  };
+  //   // Find next inactive section to add (skip section 1 as it's always on)
+  //   for (let i = 1; i < config.sections.length; i++) {
+  //     if (!config.sections[i]) {
+  //       addDebugLog(`Add Section: Adding section ${i + 1} (Active sections: ${activeSections})`);
+  //       return true; // Found section to add
+  //     }
+  //   }
+  //   return false; // No sections to add
+  // };
   
   // Simple function to remove last section when PID stays 0% for 15 seconds
-  const removeLastSection = (config: HtrConfig): boolean => {
-    const activeSections = config.sections.filter(Boolean).length;
-    if (activeSections <= 1) return false; // Only section 1 active, can't remove
+  // const removeLastSection = (config: HtrConfig): boolean => {
+  //   const activeSections = config.sections.filter(Boolean).length;
+  //   if (activeSections <= 1) return false; // Only section 1 active, can't remove
     
-    // Find last active section to remove (never remove section 1)
-    for (let i = config.sections.length - 1; i > 0; i--) {
-      if (config.sections[i]) {
-        addDebugLog(`Remove Section: Removing section ${i + 1} (Active sections: ${activeSections})`);
-        return true; // Found section to remove
-      }
-    }
-    return false; // No sections to remove
-  };
+  //   // Find last active section to remove (never remove section 1)
+  //   for (let i = config.sections.length - 1; i > 0; i--) {
+  //     if (config.sections[i]) {
+  //       addDebugLog(`Remove Section: Removing section ${i + 1} (Active sections: ${activeSections})`);
+  //       return true; // Found section to remove
+  //     }
+  //   }
+  //   return false; // No sections to remove
+  // };
   
 
 
@@ -1000,9 +971,9 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   // PID state refs for integral and lastError
   const integralRef = useRef(0);
   const lastErrorRef = useRef(0);
-  const lastOutputRef = useRef(0);
-  const lastTempRef = useRef(0);
-  const lastTempTimeRef = useRef(0);
+  // const lastOutputRef = useRef(0);
+  // const lastTempRef = useRef(0);
+  // const lastTempTimeRef = useRef(0);
   const tempVelocityRef = useRef(0);
   const lastTempVelocityRef = useRef(0);
 
@@ -1207,7 +1178,7 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
           
           // Enhanced debug logging with acceleration info
           const tempVelocity = tempVelocityRef.current;
-          const tempAcceleration = (tempVelocity - lastTempVelocityRef.current) / 1; // Approximate acceleration
+          // const tempAcceleration = (tempVelocity - lastTempVelocityRef.current) / 1; // Approximate acceleration
           
           let debugReason = '';
           if (absError > 10) {
@@ -1271,12 +1242,12 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   }, [htrConfig.sections[0], htrConfig.setpoint, htrConfig.kp, htrConfig.ki, htrConfig.kd, htrConfig.tempTrend]);
 
   // Update temperature state when MQTT messages arrive
-  useEffect(() => {
-    if (realTemp !== null) {
-      forceTemperatureUpdate(realTemp);
-      addDebugLog(`MQTT Temperature update: ${realTemp.toFixed(1)}°F`);
-    }
-  }, [realTemp]);
+  // useEffect(() => {
+  //   if (realTemp !== null) {
+  //     forceTemperatureUpdate(realTemp);
+  //     addDebugLog(`MQTT Temperature update: ${realTemp.toFixed(1)}°F`);
+  //   }
+  // }, [realTemp]);
 
   const handleSetpointChange = (value: number) => {
     // Save shared setpoint for all heaters
@@ -1449,21 +1420,21 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   }, []); // Remove htrConfig.isAuto dependency to poll all the time
 
   // Calculate temperature velocity with reduced logging
-  const calculateTempVelocity = (currentTemp: number): number => {
-    const now = Date.now();
-    const recentData = tempHistoryRef.current.filter(entry => 
-      now - entry.timestamp <= 5000 // Data from last 5 seconds
-    );
+  // const calculateTempVelocity = (currentTemp: number): number => {
+  //   const now = Date.now();
+  //   const recentData = tempHistoryRef.current.filter(entry => 
+  //     now - entry.timestamp <= 5000 // Data from last 5 seconds
+  //   );
 
-    if (recentData.length >= 2) {
-      const oldestEntry = recentData[0];
-      const timeDiff = (now - oldestEntry.timestamp) / 1000; // Convert to seconds
-      const tempVelocity = (currentTemp - oldestEntry.temp) / timeDiff;
-      return tempVelocity;
-    }
+  //   if (recentData.length >= 2) {
+  //     const oldestEntry = recentData[0];
+  //     const timeDiff = (now - oldestEntry.timestamp) / 1000; // Convert to seconds
+  //     const tempVelocity = (currentTemp - oldestEntry.temp) / timeDiff;
+  //     return tempVelocity;
+  //   }
 
-    return 0;
-  };
+  //   return 0;
+  // };
 
   return (
     <div className="p-6 max-w-4xl mx-auto">

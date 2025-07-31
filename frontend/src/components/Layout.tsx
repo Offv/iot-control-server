@@ -38,13 +38,8 @@ const Layout = ({ children }: LayoutProps) => {
               }`}
             >
               <div className="font-semibold">{item.label}</div>
-              {item.isSpecial ? (
+              {item.isSpecial && (
                 <div className="text-sm opacity-90">{item.description}</div>
-              ) : (
-                <>
-                  <div className="text-sm opacity-75">IP: {item.ip}</div>
-                  <div className="text-sm opacity-75 truncate">ID: {item.deviceId}</div>
-                </>
               )}
             </Link>
           ))}

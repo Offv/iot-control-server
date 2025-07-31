@@ -21,7 +21,7 @@ const SimpleHtrControl: React.FC<SimpleHtrControlProps> = ({ deviceType, ioLinkI
   });
   
   const [currentTemp, setCurrentTemp] = useState(75.2);
-  const [mqttStatus, setMqttStatus] = useState('Connected');
+  // const [mqttStatus, setMqttStatus] = useState('Connected');
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   // Simulate temperature updates
@@ -137,7 +137,7 @@ const SimpleHtrControl: React.FC<SimpleHtrControlProps> = ({ deviceType, ioLinkI
       {/* Status */}
       <div className="border-t pt-4">
         <div className="flex justify-between text-sm text-gray-600">
-          <span>MQTT: {mqttStatus}</span>
+          <span>MQTT: {/*mqttStatus*/}</span>
           <span>Last Update: {lastUpdate.toLocaleTimeString()}</span>
         </div>
       </div>

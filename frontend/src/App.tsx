@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
 import HtrDeviceDetail from './pages/HtrDeviceDetail';
 import DualHtrControl from './pages/DualHtrControl';
 
