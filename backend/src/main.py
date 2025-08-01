@@ -65,17 +65,6 @@ mqtt_client.on_connect = on_mqtt_connect
 mqtt_client.on_disconnect = on_mqtt_disconnect
 mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
 
-# Connect to MQTT broker
-try:
-    mqtt_client.connect(
-        os.getenv("MQTT_BROKER_HOST", "mqtt-broker"),
-        int(os.getenv("MQTT_BROKER_PORT", 1883))
-    )
-    mqtt_client.loop_start()
-    logger.info("Started MQTT client loop")
-except Exception as e:
-    logger.error(f"Failed to connect to MQTT broker: {e}")
-
 # Store PLC connections
 plc_connections = {}
 
@@ -274,14 +263,24 @@ async def poll_temperature():
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    """Start background tasks on application startup"""
+    """Startup event handler"""
     logger.info("Starting IoT Control Server")
     try:
+        # Connect to MQTT broker
+        logger.info("Attempting to connect to MQTT broker...")
+        mqtt_client.connect(
+            os.getenv("MQTT_HOST", "mqtt"),
+            int(os.getenv("MQTT_PORT", 1883))
+        )
+        mqtt_client.loop_start()
+        logger.info("MQTT client loop started")
+
         # Start temperature polling in the background
         asyncio.create_task(poll_temperature())
         logger.info("Temperature polling task started")
     except Exception as e:
         logger.error(f"Error starting temperature polling: {e}")
+        logger.error(f"MQTT connection failed: {e}")
 
 # MQTT message handler
 def on_mqtt_message(client, userdata, message):
