@@ -358,7 +358,7 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
       const endpoint = 'htr-a'; // Force both devices to use HTR-A temperature reading
       
       // Use internal Docker service name for backend communication
-      const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://backend-unit2:8000';
+      const backendUrl = 'http://backend-unit2:8000';
       const response = await fetch(`${backendUrl}/api/temperature/${endpoint}`);
       
       if (!response.ok) {
