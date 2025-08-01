@@ -662,7 +662,7 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
   // Add this helper function for HTTP POST to IO-Link master
   const sendIoLinkHttpCommand = async (portNum: number, state: boolean) => {
     // Use internal Docker service name for backend communication
-    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://backend-unit2:8000';
+    const backendUrl = 'http://backend-unit2:8000';
     
     // Relay to backend API instead of direct fetch to IO-Link master
     const url = `${backendUrl}/api/iolink/port/${portNum}/setdata`;
@@ -1349,7 +1349,7 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
     try {
       addDebugLog(`IO-Link Poll: Starting status check...`);
       // Use internal Docker service name for backend communication
-      const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://backend-unit2:8000';
+      const backendUrl = 'http://backend-unit2:8000';
       
       // Poll all 4 heater section outputs
       const actualStates: boolean[] = [];
