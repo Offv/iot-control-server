@@ -86,39 +86,21 @@ async def poll_temperature():
     
     # Get unit-specific configuration from environment variables
     unit_name = os.getenv("UNIT_NAME", "unit1")
-    unit_subnet = os.getenv("UNIT_SUBNET", "20")
     
-    # HTR-A configuration
-    htr_a_ip_full = os.getenv("HTR_A_IP", "20.29")
-    # Handle case where IP already includes subnet (e.g., "30.29") or just host part (e.g., "29")
-    if '.' in htr_a_ip_full:
-        # IP already includes subnet, extract just the host part
-        htr_a_ip = htr_a_ip_full.split('.')[-1]
-    else:
-        # IP is just host part, use as is
-        htr_a_ip = htr_a_ip_full
+    # HTR-A configuration - use IPs directly
+    htr_a_ip = os.getenv("HTR_A_IP", "192.168.30.29")
     htr_a_device_id = os.getenv("HTR_A_DEVICE_ID", "00-02-01-6D-55-8A")
     htr_a_port = os.getenv("HTR_A_TEMP_PORT", "6")
     htr_a_topic = os.getenv("HTR_A_TEMP_TOPIC", f"instrument/{unit_name}/htr_a/temperature")
     
-    # HTR-B configuration
-    htr_b_ip_full = os.getenv("HTR_B_IP", "20.33")
-    # Handle case where IP already includes subnet (e.g., "30.33") or just host part (e.g., "33")
-    if '.' in htr_b_ip_full:
-        # IP already includes subnet, extract just the host part
-        htr_b_ip = htr_b_ip_full.split('.')[-1]
-    else:
-        # IP is just host part, use as is
-        htr_b_ip = htr_b_ip_full
+    # HTR-B configuration - use IPs directly  
+    htr_b_ip = os.getenv("HTR_B_IP", "192.168.30.33")
     htr_b_device_id = os.getenv("HTR_B_DEVICE_ID", "00-02-01-6D-55-86")
     htr_b_port = os.getenv("HTR_B_TEMP_PORT", "6")
-    htr_b_topic = os.getenv("HTR_B_TEMP_TOPIC", f"instrument/{unit_name}/htr_b/temperature")
+    htr_b_topic = os.getenv("HTR_B_TEMP_TOPIC", f"instrument/{unit_name}/htr_a/temperature")  # Shared topic
     
-    # Construct full IP addresses
-    htr_a_full_ip = f"192.168.{unit_subnet}.{htr_a_ip}"
-    htr_b_full_ip = f"192.168.{unit_subnet}.{htr_b_ip}"
-    
-    logger.info(f"Unit {unit_name}: Polling HTR-A from {htr_a_full_ip}:{htr_a_port} and HTR-B from {htr_b_full_ip}:{htr_b_port}")
+    logger.info(f"Unit {unit_name}: Polling HTR-A from {htr_a_ip}:{htr_a_port} and HTR-B from {htr_b_ip}:{htr_b_port}")
+    logger.info(f"Shared temperature topic: {htr_a_topic}")
     
     # Error tracking for exponential backoff
     consecutive_errors = 0
@@ -127,9 +109,9 @@ async def poll_temperature():
     async with aiohttp.ClientSession() as session:
         while True:
             try:
-                # Poll HTR-A temperature
+                # Poll HTR-A temperature (shared sensor)
                 try:
-                    url_a = f"http://{htr_a_full_ip}/iolinkmaster/port%5B{htr_a_port}%5D/iolinkdevice/pdin/getdata"
+                    url_a = f"http://{htr_a_ip}/iolinkmaster/port%5B{htr_a_port}%5D/iolinkdevice/pdin/getdata"
                     async with session.get(url_a, timeout=aiohttp.ClientTimeout(total=5)) as response:
                         if response.status == 200:
                             data = await response.json()
@@ -188,7 +170,7 @@ async def poll_temperature():
                                         'timestamp': timestamp,
                                         'raw_value': hex_value,
                                         'device': 'htr_a',
-                                        'ip': htr_a_full_ip
+                                        'ip': htr_a_ip
                                     }
                                     
                                     # Reset error counter on successful read
@@ -203,7 +185,7 @@ async def poll_temperature():
                 
                 # Poll HTR-B temperature
                 try:
-                    url_b = f"http://{htr_b_full_ip}/iolinkmaster/port%5B{htr_b_port}%5D/iolinkdevice/pdin/getdata"
+                    url_b = f"http://{htr_b_ip}/iolinkmaster/port%5B{htr_b_port}%5D/iolinkdevice/pdin/getdata"
                     async with session.get(url_b, timeout=aiohttp.ClientTimeout(total=5)) as response:
                         if response.status == 200:
                             data = await response.json()
@@ -262,7 +244,7 @@ async def poll_temperature():
                                         'timestamp': timestamp,
                                         'raw_value': hex_value,
                                         'device': 'htr_b',
-                                        'ip': htr_b_full_ip
+                                        'ip': htr_b_ip
                                     }
                                     
                                     # Reset error counter on successful read

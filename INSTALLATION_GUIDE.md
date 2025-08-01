@@ -379,23 +379,55 @@ After firewall configuration, your application will be accessible at:
 
 ### Common Issues
 
-1. **"Cannot reach the device"**:
+1. **"Frontend Not Receiving Temperature Data"**:
+   - **Symptom**: Temperature displays show 0°F or no values
+   - **Cause**: Frontend trying to connect to external ports instead of internal Docker services
+   - **Solution**: 
+     ```bash
+     # Check if backend API is accessible internally
+     docker-compose exec frontend-unit1 wget -qO- http://backend-unit1:8000/api/temperature/htr-a
+     
+     # Verify environment variables are correct
+     docker-compose exec frontend-unit1 env | grep VITE_API_BASE_URL
+     
+     # Restart frontend container
+     docker-compose restart frontend-unit1
+     ```
+   - **Prevention**: Always use `VITE_API_BASE_URL=http://backend-unit1:8000` in Docker environment
+
+2. **"MQTT Connection Issues"**:
+   - **Symptom**: MQTT status shows "Disconnected" or "Connecting..."
+   - **Cause**: Wrong WebSocket port or host configuration
+   - **Solution**:
+     ```bash
+     # Check MQTT WebSocket port (should be 9001)
+     docker-compose exec frontend-unit1 env | grep VITE_MQTT_WS_PORT
+     
+     # Verify MQTT service is running
+     docker-compose logs mqtt
+     
+     # Test MQTT WebSocket connection
+     curl -I http://localhost:9001
+     ```
+   - **Prevention**: Ensure `VITE_MQTT_WS_PORT=9001` is set correctly
+
+3. **"Cannot reach the device"**:
    - Check device power
    - Verify network cable connection
    - Confirm full IP address format (192.168.x.x)
    - Ensure device is on the correct subnet
 
-2. **"Shared Temperature Not Working"**:
+4. **"Shared Temperature Not Working"**:
    - Verify HTR-A temperature sensor is connected to port 6
    - Check MQTT topic configuration
    - Confirm both heaters are subscribing to the same temperature topic
 
-3. **"State Persistence Not Working"**:
+5. **"State Persistence Not Working"**:
    - Check browser localStorage support
    - Verify unique storage keys for each unit
    - Clear browser cache if needed
 
-4. **"Timer Settings Not Saving"**:
+6. **"Timer Settings Not Saving"**:
    - Confirm timer range is 5-120 seconds
    - Check individual unit timer storage keys
    - Verify PID tuning panel timer input

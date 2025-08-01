@@ -2,8 +2,15 @@ devices:
   temperature_sensor:
     master_ip: "192.168.30.29"
     port: 6
-    mqtt_topic: "iolink/#"  # Subscribe to all IO-Link topics to debug
+    mqtt_topic: "instrument/unit2/htr_a/temperature"  # Shared topic for both heaters
     data_type: "temperature"
-    unit: "celsius"
+    unit: "fahrenheit"
+    range: [32, 750]  # Updated temperature range
     update_rate: 1000  # milliseconds
-    scaling_factor: 0.1  # Adjust this based on your sensor's output format 
+    scaling_factor: 0.1  # Adjust this based on your sensor's output format
+    
+  htr_sections:
+    master_ip: "192.168.30.29"  # HTR-A
+    master_ip_b: "192.168.30.33"  # HTR-B
+    ports: [1, 2, 3, 4]  # Section control ports
+    section_protection: 0  # Section 0 always protected 

@@ -45,7 +45,7 @@ class MqttService {
   // MQTT Configuration
   private readonly config = {
     host: window.location.hostname || 'localhost',
-    port: 39001, // WebSocket port
+    port: parseInt(import.meta.env.VITE_MQTT_WS_PORT || '9001'), // Use environment variable
     clientId: `htr_control_global_${Math.random().toString(16).substring(2, 8)}`,
     keepalive: 60,
     reconnectPeriod: 5000,

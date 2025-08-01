@@ -61,6 +61,50 @@ validate_device_id() {
     fi
 }
 
+# Function to validate Docker networking configuration
+validate_docker_networking() {
+    local unit_number=$1
+    
+    print_status "Validating Docker networking configuration for Unit $unit_number..."
+    
+    # Check if docker-compose.yml exists
+    if [[ ! -f "docker-compose.yml" ]]; then
+        print_error "docker-compose.yml not found. Please run this script from the project root directory."
+        return 1
+    fi
+    
+    # Check for required environment variables in docker-compose.yml
+    local required_vars=(
+        "VITE_API_BASE_URL"
+        "VITE_MQTT_WS_PORT"
+        "VITE_UNIT_NAME"
+        "VITE_UNIT_SUBNET"
+    )
+    
+    for var in "${required_vars[@]}"; do
+        if ! grep -q "$var" docker-compose.yml; then
+            print_warning "Missing environment variable: $var in docker-compose.yml"
+        fi
+    done
+    
+    # Validate API base URL format
+    if grep -q "VITE_API_BASE_URL.*localhost.*38001" docker-compose.yml; then
+        print_error "❌ Found incorrect API base URL configuration"
+        print_error "   Frontend should use internal Docker service names, not external ports"
+        print_status "   Expected: VITE_API_BASE_URL=http://backend-unit$unit_number:8000"
+        print_status "   Found: VITE_API_BASE_URL with localhost:38001"
+        return 1
+    fi
+    
+    # Validate MQTT WebSocket port
+    if ! grep -q "VITE_MQTT_WS_PORT=9001" docker-compose.yml; then
+        print_warning "MQTT WebSocket port should be 9001 for proper frontend-backend communication"
+    fi
+    
+    print_success "✅ Docker networking configuration validated"
+    return 0
+}
+
 # Function to discover IO-Link device ID
 discover_device_id() {
     local ip=$1
@@ -268,6 +312,52 @@ EOF
     echo "  - config/unit${unit_number}_config.yml"
 }
 
+# Function to verify post-installation communication
+verify_installation() {
+    local unit_number=$1
+    local unit_name="unit${unit_number}"
+    
+    print_status ""
+    print_status "=== Post-Installation Verification ==="
+    
+    # Check if Docker is running
+    if ! command -v docker &> /dev/null; then
+        print_warning "Docker not found. Skipping post-installation verification."
+        return 0
+    fi
+    
+    # Check if containers are running
+    if docker ps | grep -q "iot-backend-${unit_name}"; then
+        print_success "✅ Backend container is running"
+        
+        # Test backend API internally
+        if docker exec "iot-backend-${unit_name}" wget -qO- http://localhost:8000/api/temperature/htr-a &>/dev/null; then
+            print_success "✅ Backend API is responding"
+        else
+            print_warning "⚠️  Backend API may not be fully initialized yet"
+        fi
+    else
+        print_warning "⚠️  Backend container not running. Start with: docker-compose -f docker-compose.dev.yml -f docker-compose.unit${unit_number}.yml up -d"
+    fi
+    
+    if docker ps | grep -q "iot-frontend-${unit_name}"; then
+        print_success "✅ Frontend container is running"
+        
+        # Test frontend-backend communication
+        if docker exec "iot-frontend-${unit_name}" wget -qO- http://backend-${unit_name}:8000/api/temperature/htr-a &>/dev/null; then
+            print_success "✅ Frontend can communicate with backend"
+        else
+            print_warning "⚠️  Frontend-backend communication may need time to initialize"
+        fi
+    else
+        print_warning "⚠️  Frontend container not running. Start with: docker-compose -f docker-compose.dev.yml -f docker-compose.unit${unit_number}.yml up -d"
+    fi
+    
+    print_status ""
+    print_status "Verification complete. If containers are not running, start them with:"
+    echo "  docker-compose -f docker-compose.dev.yml -f docker-compose.unit${unit_number}.yml up -d"
+}
+
 # Main installation process
 echo "🔧 IoT Control System - Interactive Unit Installation"
 echo "====================================================="
@@ -350,6 +440,9 @@ if [[ $confirm =~ ^[Yy]$ ]]; then
     # Generate configuration
     generate_unit_config "$unit_number" "$htr_a_ip" "$htr_a_device_id" "$htr_b_ip" "$htr_b_device_id"
     
+    # Validate Docker networking
+    validate_docker_networking "$unit_number"
+    
     # Configure firewall
     print_status ""
     print_status "=== Firewall Configuration ==="
@@ -392,6 +485,9 @@ if [[ $confirm =~ ^[Yy]$ ]]; then
         echo "  - 9001 (MQTT WebSocket)"
         echo "  - 5432 (Database)"
     fi
+    
+    # Verify installation
+    verify_installation "$unit_number"
     
     print_success ""
     print_success "Unit $unit_number installation completed!"

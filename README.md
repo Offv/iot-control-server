@@ -66,34 +66,115 @@ This system provides precise temperature control for industrial heating applicat
 - **System Health**: MQTT connection and IO-Link status monitoring
 - **Debug Information**: Collapsible system logs for troubleshooting
 
-## 🚀 **Quick Start**
+## 🚀 Quick Start
 
-### **Prerequisites**
-- Docker and Docker Compose
-- Network access to IO-Link master (192.168.30.29)
-- Git for version control
-
-### **Development Setup**
+### 1. Install Dependencies
 ```bash
-# Clone repository
-git clone https://github.com/Offv/iot-control-server.git
-cd iot-control-server
+# Install Docker and Docker Compose
+sudo apt update
+sudo apt install docker.io docker-compose
 
-# Start development environment
-./dev-start.sh
-
-# Access application
-# Frontend: http://localhost:33001 (Unit 1) / http://localhost:33002 (Unit 2)
-# Backend: http://localhost:38001 (Unit 1) / http://localhost:38002 (Unit 2)
+# Add user to docker group
+sudo usermod -aG docker $USER
+newgrp docker
 ```
 
-### **Production Deployment**
+### 2. Clone and Setup
 ```bash
-# Single unit deployment
-docker-compose up -d
+git clone <repository-url>
+cd iot-control-server
+```
 
-# Multi-unit deployment
-docker-compose -f docker-compose.dev.yml up -d
+### 3. Install Units
+```bash
+# Interactive installation for each unit
+./install-unit-interactive.sh
+```
+
+### 4. Start System
+```bash
+# Start all units
+docker-compose up -d
+```
+
+## 🔧 Troubleshooting
+
+### Quick Diagnosis
+Run the automated troubleshooting script to diagnose communication issues:
+
+```bash
+./troubleshoot-communication.sh
+```
+
+This script will check:
+- ✅ Docker container status
+- ✅ Backend API connectivity
+- ✅ Frontend-backend communication
+- ✅ MQTT WebSocket connectivity
+- ✅ IO-Link device connectivity
+
+### Common Issues
+
+#### 1. Frontend Not Receiving Temperature Data
+**Symptom**: Temperature displays show 0°F or no values
+
+**Solution**:
+```bash
+# Check if backend API is accessible internally
+docker-compose exec frontend-unit1 wget -qO- http://backend-unit1:8000/api/temperature/htr-a
+
+# Verify environment variables
+docker-compose exec frontend-unit1 env | grep VITE_API_BASE_URL
+
+# Restart frontend container
+docker-compose restart frontend-unit1
+```
+
+**Prevention**: Always use `VITE_API_BASE_URL=http://backend-unit1:8000` in Docker environment
+
+#### 2. MQTT Connection Issues
+**Symptom**: MQTT status shows "Disconnected" or "Connecting..."
+
+**Solution**:
+```bash
+# Check MQTT WebSocket port (should be 9001)
+docker-compose exec frontend-unit1 env | grep VITE_MQTT_WS_PORT
+
+# Verify MQTT service is running
+docker-compose logs mqtt
+
+# Test MQTT WebSocket connection
+curl -I http://localhost:9001
+```
+
+#### 3. IO-Link Communication Issues
+**Symptom**: "IO-Link Poll" errors or no temperature updates
+
+**Solution**:
+```bash
+# Test IO-Link connectivity directly
+curl "http://192.168.30.29/iolinkmaster/port%5B6%5D/iolinkdevice/pdin/getdata"
+
+# Check backend logs for IO-Link errors
+docker-compose logs backend-unit1 | grep -i "iolink\|error"
+```
+
+### Manual Debugging
+
+```bash
+# View all logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f backend-unit1
+docker-compose logs -f frontend-unit1
+docker-compose logs -f mqtt
+
+# Test internal communication
+docker-compose exec frontend-unit1 wget -qO- http://backend-unit1:8000/api/temperature/htr-a
+
+# Restart specific services
+docker-compose restart backend-unit1 frontend-unit1
 ```
 
 ## 🔧 **System Configuration**

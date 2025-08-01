@@ -24,26 +24,26 @@ services:
     volumes:
       - iot-db-data:/var/lib/postgresql/data
 
-  # Unit 1 Services
-  backend-unit1:
+  # Unit 2 Services (Active - 192.168.30.29-33 is online)
+  backend-unit2:
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
       - MQTT_HOST=mqtt
       - MQTT_PORT=1883
-      - UNIT_NAME=unit1
-      - UNIT_NUMBER=1
-      - UNIT_DOMAIN=unit1htr.system
+      - UNIT_NAME=unit2
+      - UNIT_NUMBER=2
+      - UNIT_DOMAIN=unit2htr.system
       - UNIT_SUBNET=30
-      - HTR_A_IP=${UNIT1_HTR_A_IP:-192.168.30.29}
-      - HTR_A_DEVICE_ID=${UNIT1_HTR_A_DEVICE_ID:-00-02-01-6D-55-8A}
+      - HTR_A_IP=${UNIT2_HTR_A_IP:-192.168.30.29}
+      - HTR_A_DEVICE_ID=${UNIT2_HTR_A_DEVICE_ID:-00-02-01-6D-55-8A}
       - HTR_A_TEMP_PORT=6
-      - HTR_A_TEMP_TOPIC=instrument/unit1/htr_a/temperature
-      - HTR_B_IP=${UNIT1_HTR_B_IP:-192.168.30.29}
-      - HTR_B_DEVICE_ID=${UNIT1_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
+      - HTR_A_TEMP_TOPIC=instrument/unit2/htr_a/temperature
+      - HTR_B_IP=${UNIT2_HTR_B_IP:-192.168.30.33}
+      - HTR_B_DEVICE_ID=${UNIT2_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
       - HTR_B_TEMP_PORT=6
-      - HTR_B_TEMP_TOPIC=instrument/unit1/htr_a/temperature
+      - HTR_B_TEMP_TOPIC=instrument/unit2/htr_a/temperature
       - DATABASE_URL=postgresql://iotuser:iotpassword@database:5432/iotdata
       - LOG_LEVEL=INFO
     volumes:
@@ -51,8 +51,10 @@ services:
     depends_on:
       - mqtt
       - database
+    ports:
+      - "38002:8000"  # Expose backend API for Unit 2
 
-  frontend-unit1:
+  frontend-unit2:
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -60,42 +62,52 @@ services:
       - VITE_MQTT_HOST=${MQTT_HOST:-localhost}
       - VITE_MQTT_PORT=1883
       - VITE_MQTT_WS_PORT=9001
-      - VITE_UNIT_NAME=unit1
-      - VITE_UNIT_NUMBER=1
-      - VITE_UNIT_DOMAIN=unit1htr.system
-      - VITE_UNIT_SUBNET=25
-      - VITE_HTR_A_IP=${UNIT1_HTR_A_IP:-192.168.25.29}
-      - VITE_HTR_A_DEVICE_ID=${UNIT1_HTR_A_DEVICE_ID:-00-02-01-6D-55-8A}
-      - VITE_HTR_A_TOPIC=instrument/unit1/htr_a/temperature
-      - VITE_HTR_B_IP=${UNIT1_HTR_B_IP:-192.168.25.33}
-      - VITE_HTR_B_DEVICE_ID=${UNIT1_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
-      - VITE_HTR_B_TOPIC=instrument/unit1/htr_a/temperature
-      - VITE_API_BASE_URL=http://backend-unit1:8000
+      - VITE_UNIT_NAME=unit2
+      - VITE_UNIT_NUMBER=2
+      - VITE_UNIT_DOMAIN=unit2htr.system
+      - VITE_UNIT_SUBNET=30
+      - VITE_HTR_A_IP=${UNIT2_HTR_A_IP:-192.168.30.29}
+      - VITE_HTR_A_DEVICE_ID=${UNIT2_HTR_A_DEVICE_ID:-00-02-01-6D-55-8A}
+      - VITE_HTR_A_TOPIC=instrument/unit2/htr_a/temperature
+      - VITE_HTR_B_IP=${UNIT2_HTR_B_IP:-192.168.30.33}
+      - VITE_HTR_B_DEVICE_ID=${UNIT2_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
+      - VITE_HTR_B_TOPIC=instrument/unit2/htr_a/temperature
+      - VITE_API_BASE_URL=http://backend-unit2:8000
     ports:
-      - "3001:3000"
+      - "33002:3000"  # Original Unit 2 frontend port
     depends_on:
       - mqtt
-      - backend-unit1
+      - backend-unit2
 
-  # Unit 2 Services (commented out for initial testing)
-  # backend-unit2:
+  # Unit 1 Services (commented out - not online)
+  # backend-unit1:
   #   build:
   #     context: ./backend
   #     dockerfile: Dockerfile
   #   environment:
   #     - MQTT_HOST=mqtt
   #     - MQTT_PORT=1883
-  #     - IOLINK_IP=${UNIT2_IOLINK_IP:-192.168.30.33}
-  #     - DEVICE_ID=${UNIT2_DEVICE_ID:-00-02-01-6D-55-86}
-  #     - UNIT_NAME=unit2
-  #     - TEMP_TOPIC=instrument/unit2/temperature
-  #     - CONFIG_PATH=/app/config/iolink_config.yml
+  #     - UNIT_NAME=unit1
+  #     - UNIT_NUMBER=1
+  #     - UNIT_DOMAIN=unit1htr.system
+  #     - UNIT_SUBNET=30
+  #     - HTR_A_IP=${UNIT1_HTR_A_IP:-192.168.30.29}
+  #     - HTR_A_DEVICE_ID=${UNIT1_HTR_A_DEVICE_ID:-00-02-01-6D-55-8A}
+  #     - HTR_A_TEMP_PORT=6
+  #     - HTR_A_TEMP_TOPIC=instrument/unit1/htr_a/temperature
+  #     - HTR_B_IP=${UNIT1_HTR_B_IP:-192.168.30.33}
+  #     - HTR_B_DEVICE_ID=${UNIT1_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
+  #     - HTR_B_TEMP_PORT=6
+  #     - HTR_B_TEMP_TOPIC=instrument/unit1/htr_a/temperature
+  #     - DATABASE_URL=postgresql://iotuser:iotpassword@database:5432/iotdata
+  #     - LOG_LEVEL=INFO
   #   volumes:
   #     - ./config:/app/config
   #   depends_on:
   #     - mqtt
+  #     - database
 
-  # frontend-unit2:
+  # frontend-unit1:
   #   build:
   #     context: ./frontend
   #     dockerfile: Dockerfile
@@ -103,15 +115,22 @@ services:
   #     - VITE_MQTT_HOST=${MQTT_HOST:-localhost}
   #     - VITE_MQTT_PORT=1883
   #     - VITE_MQTT_WS_PORT=9001
-  #     - VITE_HTR_A_IP=${UNIT2_IOLINK_IP:-192.168.30.33}
-  #     - VITE_HTR_A_DEVICE_ID=${UNIT2_DEVICE_ID:-00-02-01-6D-55-86}
-  #     - VITE_HTR_A_TOPIC=instrument/unit2/temperature
-  #     - VITE_UNIT_NAME=unit2
+  #     - VITE_UNIT_NAME=unit1
+  #     - VITE_UNIT_NUMBER=1
+  #     - VITE_UNIT_DOMAIN=unit1htr.system
+  #     - VITE_UNIT_SUBNET=30
+  #     - VITE_HTR_A_IP=${UNIT1_HTR_A_IP:-192.168.30.29}
+  #     - VITE_HTR_A_DEVICE_ID=${UNIT1_HTR_A_DEVICE_ID:-00-02-01-6D-55-8A}
+  #     - VITE_HTR_A_TOPIC=instrument/unit1/htr_a/temperature
+  #     - VITE_HTR_B_IP=${UNIT1_HTR_B_IP:-192.168.30.33}
+  #     - VITE_HTR_B_DEVICE_ID=${UNIT1_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
+  #     - VITE_HTR_B_TOPIC=instrument/unit1/htr_a/temperature
+  #     - VITE_API_BASE_URL=http://backend-unit1:8000
   #   ports:
-  #     - "3002:80"
+  #     - "33001:3000"
   #   depends_on:
   #     - mqtt
-  #     - backend-unit2
+  #     - backend-unit1
 
 volumes:
   iot-db-data: 
