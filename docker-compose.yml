@@ -72,7 +72,7 @@ services:
       - VITE_HTR_B_IP=${UNIT2_HTR_B_IP:-192.168.30.33}
       - VITE_HTR_B_DEVICE_ID=${UNIT2_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
       - VITE_HTR_B_TOPIC=instrument/unit2/htr_a/temperature
-      - VITE_API_BASE_URL=http://backend-unit2:8000
+      - VITE_API_BASE_URL=http://192.168.25.198:38002
     ports:
       - "33002:3000"  # Original Unit 2 frontend port
     depends_on:
