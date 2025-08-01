@@ -648,8 +648,8 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
       const restoreTimer = setTimeout(() => {
         savedState.sections!.forEach((isEnabled, index) => {
           if (isEnabled) {
-            const portMap = [IO_LINK_PORTS.SECTION_1, IO_LINK_PORTS.SECTION_2, IO_LINK_PORTS.SECTION_3, IO_LINK_PORTS.SECTION_4];
-            sendIoLinkCommand(portMap[index], true);
+            const portNum = index + 1; // Convert to 1-based port number
+            sendIoLinkHttpCommand(portNum, true);
             console.log(`Restored section ${index + 1} to ON for ${deviceType}`);
           }
         });
@@ -745,16 +745,10 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
       lastSectionChange: Date.now()
     }));
 
-    // Send IO-Link command
-    const portMap = [
-      IO_LINK_PORTS.SECTION_1,
-      IO_LINK_PORTS.SECTION_2,
-      IO_LINK_PORTS.SECTION_3,
-      IO_LINK_PORTS.SECTION_4
-    ];
-    
-    addDebugLog(`Manual Toggle: Sending IO-Link command to ${portMap[sectionIndex]} = ${newState}`);
-    sendIoLinkCommand(portMap[sectionIndex], newState);
+    // Send IO-Link command using HTTP API
+    const portNum = sectionIndex + 1; // Convert to 1-based port number
+    addDebugLog(`Manual Toggle: Sending IO-Link HTTP command to port ${portNum} = ${newState}`);
+    sendIoLinkHttpCommand(portNum, newState);
     
     // Immediately update IO-Link port status display
     setIoLinkPortStatus(prev => {
@@ -853,8 +847,8 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
                 if (!prev.sections[i]) {
                   const newSections = [...prev.sections];
                   newSections[i] = true;
-                  const portMap = [IO_LINK_PORTS.SECTION_1, IO_LINK_PORTS.SECTION_2, IO_LINK_PORTS.SECTION_3, IO_LINK_PORTS.SECTION_4];
-                  sendIoLinkCommand(portMap[i], true);
+                  const portNum = i + 1; // Convert to 1-based port number
+                  sendIoLinkHttpCommand(portNum, true);
                   console.log(`✅ ADD Action: Added section ${i + 1} (now ${activeSections + 1}/4 active)`);
                   
                   // Reset timer and continue checking
@@ -910,8 +904,8 @@ const HtrDeviceDetail: React.FC<HtrDeviceDetailProps> = ({ deviceType, ioLinkIp 
                 if (prev.sections[i]) {
                   const newSections = [...prev.sections];
                   newSections[i] = false;
-                  const portMap = [IO_LINK_PORTS.SECTION_1, IO_LINK_PORTS.SECTION_2, IO_LINK_PORTS.SECTION_3, IO_LINK_PORTS.SECTION_4];
-                  sendIoLinkCommand(portMap[i], false);
+                  const portNum = i + 1; // Convert to 1-based port number
+                  sendIoLinkHttpCommand(portNum, false);
                   console.log(`✅ REMOVE Action: Removed section ${i + 1} (now ${activeSections - 1}/4 active, Section 0 protected)`);
                   
                   // Reset timer and continue checking
