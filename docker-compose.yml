@@ -63,11 +63,11 @@ services:
       - VITE_UNIT_NAME=unit1
       - VITE_UNIT_NUMBER=1
       - VITE_UNIT_DOMAIN=unit1htr.system
-      - VITE_UNIT_SUBNET=30
-      - VITE_HTR_A_IP=${UNIT1_HTR_A_IP:-192.168.30.29}
+      - VITE_UNIT_SUBNET=25
+      - VITE_HTR_A_IP=${UNIT1_HTR_A_IP:-192.168.25.29}
       - VITE_HTR_A_DEVICE_ID=${UNIT1_HTR_A_DEVICE_ID:-00-02-01-6D-55-8A}
       - VITE_HTR_A_TOPIC=instrument/unit1/htr_a/temperature
-      - VITE_HTR_B_IP=${UNIT1_HTR_B_IP:-192.168.30.29}
+      - VITE_HTR_B_IP=${UNIT1_HTR_B_IP:-192.168.25.33}
       - VITE_HTR_B_DEVICE_ID=${UNIT1_HTR_B_DEVICE_ID:-00-02-01-6D-55-86}
       - VITE_HTR_B_TOPIC=instrument/unit1/htr_a/temperature
       - VITE_API_BASE_URL=http://backend-unit1:8000
